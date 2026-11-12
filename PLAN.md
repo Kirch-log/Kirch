@@ -25,7 +25,7 @@ Personal project. Core pieces built **from scratch**.
 - **Name:** `kirch`, data in `.kirch/`
 - **Git engine:** from scratch (no go-git)
 - **Language:** Go
-- **Go module:** `github.com/evinbento/kirch`
+- **Go module:** `github.com/Kirch-log/kirch`
 - **Cobra:** command parsing only — all logic ours
 - **Engine = clean Go functions** (`Commit()`, `Diff()`, `Log()`) so CLI *and* agent can call them
 - **Object format:** git-identical (`<type> <size>\0<content>`, zlib, same tree/commit layout) → hashes match `git hash-object`, real git = test oracle
