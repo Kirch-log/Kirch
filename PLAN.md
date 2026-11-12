@@ -1,4 +1,4 @@
-# Trance — Plan
+# Kirch — Plan
 
 **Git for hardware circuits.** Version your circuit, compare versions, go back, and debug the real board with a probe + AI agent.
 
@@ -10,7 +10,7 @@ Personal project. Core pieces built **from scratch**.
 
 | # | Part | Role | Goal |
 |---|---|---|---|
-| 1 | **`trance` CLI** | Memory | Own git: commit, branch, diff, checkout, revert, merge, push |
+| 1 | **`kirch` CLI** | Memory | Own git: commit, branch, diff, checkout, revert, merge, push |
 | 2 | **Platform** | Sharing | GitHub-like server + website |
 | 3 | **Probe** | Eyes | ESP32-S3 reads real board |
 | 4 | **Agent** | Brain | Uses history + probe to find problems and suggest fixes |
@@ -20,7 +20,7 @@ Personal project. Core pieces built **from scratch**.
 
 ## Decisions Made
 
-- **Name:** `trance`, data in `.trance/`
+- **Name:** `kirch`, data in `.kirch/`
 - **Git engine:** from scratch (no go-git)
 - **Language:** Go
 - **Cobra:** command parsing only — all logic ours
@@ -33,7 +33,7 @@ Personal project. Core pieces built **from scratch**.
 ## Storage (git model)
 
 ```
-.trance/
+.kirch/
 ├── HEAD           → current branch
 ├── index          → staging area
 ├── refs/heads/    → branches (file = commit hash)
@@ -44,11 +44,11 @@ Personal project. Core pieces built **from scratch**.
 
 ---
 
-## Part 1 — `trance` CLI (NOW)
+## Part 1 — `kirch` CLI (NOW)
 
 **Layout**
 ```
-trance/
+kirch/
 ├── main.go
 ├── cmd/        ← Cobra commands (thin)
 └── internal/   ← engine: repo, objects, index, refs, diff, merge
@@ -80,18 +80,18 @@ trance/
 ## Part 3 — Probe (Wi-Fi only, no USB)
 - ESP32-S3, JSON readings, battery powered
 - Wi-Fi setup over Bluetooth from a phone (first time only)
-- Found on the network as `trance-probe.local` (mDNS)
+- Found on the network as `kirch-probe.local` (mDNS)
 - Streams readings over WebSocket; numbered so dropped ones are re-sent
-- `trance probe pair` → pair once with a shared key
-- `trance capture` → `capture.json`, attach to commits
+- `kirch probe pair` → pair once with a shared key
+- `kirch capture` → `capture.json`, attach to commits
 - Fallback: probe creates its own Wi-Fi network when the local one blocks devices
 - Probe firmware updates over Wi-Fi (OTA) — USB is only used once, to flash the very first firmware
 
 ## Part 4 — Agent
-- `trance debug "<problem>"` — reads commits + probe, narrows cause, suggests fix
-- `trance fix` — proposes fix as new branch
-- `trance explain` — wiring diff in plain English
-- `trance bisect --auto` — finds commit that broke a signal
+- `kirch debug "<problem>"` — reads commits + probe, narrows cause, suggests fix
+- `kirch fix` — proposes fix as new branch
+- `kirch explain` — wiring diff in plain English
+- `kirch bisect --auto` — finds commit that broke a signal
 - LLM (Claude) + tool use; tools = our engine + probe
 
 ---
