@@ -76,10 +76,15 @@ trance/
 - Next.js + TS + Tailwind site: repos, commits, diff view
 - Run locally in Docker first
 
-## Part 3 — Probe
-- ESP32-S3, JSON readings
-- USB serial first, Wi-Fi later
+## Part 3 — Probe (Wi-Fi only, no USB)
+- ESP32-S3, JSON readings, battery powered
+- Wi-Fi setup over Bluetooth from a phone (first time only)
+- Found on the network as `trance-probe.local` (mDNS)
+- Streams readings over WebSocket; numbered so dropped ones are re-sent
+- `trance probe pair` → pair once with a shared key
 - `trance capture` → `capture.json`, attach to commits
+- Fallback: probe creates its own Wi-Fi network when the local one blocks devices
+- Probe firmware updates over Wi-Fi (OTA) — USB is only used once, to flash the very first firmware
 
 ## Part 4 — Agent
 - `trance debug "<problem>"` — reads commits + probe, narrows cause, suggests fix
@@ -93,8 +98,7 @@ trance/
 ## Later (plan after Part 4)
 
 - 3D circuit viewer + 3D diff
-- Wi-Fi probe: pairing, mDNS, WebSocket, battery
-- OTA firmware updates (probe + circuit board)
+- OTA firmware updates for the circuit board
 - Cloud mode (AWS IoT Core)
 - Deployment / hosting (AWS or simpler)
 - Big files (photos, binaries) → S3-style storage
