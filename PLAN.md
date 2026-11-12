@@ -8,7 +8,7 @@ Personal project. Core pieces built **from scratch**.
 
 ---
 
-## The 4 Parts
+## The 5 Parts
 
 | # | Part | Role | Goal |
 |---|---|---|---|
@@ -16,6 +16,7 @@ Personal project. Core pieces built **from scratch**.
 | 2 | **Platform** | Sharing | GitHub-like server + website |
 | 3 | **Probe** | Eyes | ESP32-S3 reads real board |
 | 4 | **Agent** | Brain | Uses history + probe to find problems and suggest fixes |
+| 5 | **3D View** | Face | 3D model of the circuit for every commit, with 3D diff |
 
 ---
 
@@ -88,10 +89,15 @@ kirch/
 - Next.js + TS + Tailwind site: repos, commits, diff view
 - Run locally in Docker first
 
-## Part 3 — Probe
-- ESP32-S3, JSON readings
-- USB serial first, Wi-Fi later
+## Part 3 — Probe (Wi-Fi only, no USB)
+- ESP32-S3, JSON readings, battery powered
+- Wi-Fi setup over Bluetooth from a phone (first time only)
+- Found on the network as `kirch-probe.local` (mDNS)
+- Streams readings over WebSocket; numbered so dropped ones are re-sent
+- `kirch probe pair` → pair once with a shared key
 - `kirch capture` → `capture.json`, attach to commits
+- Fallback: probe creates its own Wi-Fi network when the local one blocks devices
+- Probe firmware updates over Wi-Fi (OTA) — USB is only used once, to flash the very first firmware
 
 ## Part 4 — Agent
 - `kirch debug "<problem>"` — reads commits + probe, narrows cause, suggests fix
@@ -102,11 +108,18 @@ kirch/
 
 ---
 
-## Later (plan after Part 4)
+## Part 5 — 3D View
+- Main way to see a commit on the website
+- Built in the browser (React Three Fiber / Three.js) from `netlist.json` + `layout.json` — no 3D file stored in commits
+- Part models in glTF (converted from KiCad's free 3D library)
+- 3D diff: added wires green, removed red, moved parts highlighted
+- Live probe values shown on the wires (green/red per connection)
+- 2D breadboard editor to enter the layout
+- Photo only as last resort, for what 3D can't show (crossed, short or rigid wires)
 
-- 3D circuit viewer + 3D diff
-- Wi-Fi probe: pairing, mDNS, WebSocket, battery
-- OTA firmware updates (probe + circuit board)
+## Later (plan after Part 5)
+
+- OTA firmware updates for the circuit board
 - Cloud mode (AWS IoT Core)
 - Deployment / hosting (AWS or simpler)
 - Big files (photos, binaries) → S3-style storage
