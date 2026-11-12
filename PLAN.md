@@ -6,7 +6,7 @@ Personal project. Core pieces built **from scratch**.
 
 ---
 
-## The 4 Parts
+## The 5 Parts
 
 | # | Part | Role | Goal |
 |---|---|---|---|
@@ -14,6 +14,7 @@ Personal project. Core pieces built **from scratch**.
 | 2 | **Platform** | Sharing | GitHub-like server + website |
 | 3 | **Probe** | Eyes | ESP32-S3 reads real board |
 | 4 | **Agent** | Brain | Uses history + probe to find problems and suggest fixes |
+| 5 | **3D View** | Face | 3D model of the circuit for every commit, with 3D diff |
 
 ---
 
@@ -95,9 +96,17 @@ trance/
 
 ---
 
-## Later (plan after Part 4)
+## Part 5 — 3D View
+- Main way to see a commit on the website
+- Built in the browser (React Three Fiber / Three.js) from `netlist.json` + `layout.json` — no 3D file stored in commits
+- Part models in glTF (converted from KiCad's free 3D library)
+- 3D diff: added wires green, removed red, moved parts highlighted
+- Live probe values shown on the wires (green/red per connection)
+- 2D breadboard editor to enter the layout
+- Photo only as last resort, for what 3D can't show (crossed, short or rigid wires)
 
-- 3D circuit viewer + 3D diff
+## Later (plan after Part 5)
+
 - OTA firmware updates for the circuit board
 - Cloud mode (AWS IoT Core)
 - Deployment / hosting (AWS or simpler)
