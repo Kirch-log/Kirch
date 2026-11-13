@@ -34,6 +34,13 @@ Personal project. Core pieces built **from scratch**.
 - **Agent never changes history alone** — suggests fixes as branches, user confirms
 - Old ReWeird code ignored — fresh start
 
+## Decision Log
+
+| Date | Decision |
+|---|---|
+| 2026-11-13 | **Data formats** set in [`docs/formats.md`](docs/formats.md): `parts.json`, `netlist.json`, `layout.json`, `capture.json`. Netlist merge v1 = per pin, conflict only when both sides move the same pin. |
+| 2026-11-13 | **Part 2 stack + hosting** chosen (see Part 2). Local Docker first, AWS when deployed. |
+
 ---
 
 ## Storage (git model)
@@ -89,6 +96,29 @@ kirch/
 - Next.js + TS + Tailwind site: repos, commits, diff view
 - Run locally in Docker first
 
+**Stack**
+
+| Piece | Choice |
+|---|---|
+| Server | Go `net/http` + `chi` router |
+| Repo storage | `.kirch` repos on the server's disk (shares the Part 1 engine) |
+| Database | Postgres 16 · `pgx` driver · `sqlc` (SQL → Go) · `goose` migrations |
+| Push / pull | HTTP + JSON: client and server compare hashes, missing objects sent as one gzip bundle; branch moves only if nobody pushed first |
+| Website | Next.js (App Router) + TypeScript + Tailwind + shadcn/ui + TanStack Query |
+| Diff views | Own wiring-diff component (`netlist.json`) · Monaco diff for `firmware/` |
+| Local dev | Docker Compose: Postgres + server + website, one command |
+| Tests | Go `testing` + a real Postgres in Docker |
+| Hosting (when deployed) | AWS: EC2 + EBS (server and repos) · RDS (Postgres) · S3 (big files) · Amplify (website) |
+
+**Tables:** `users`, `repos`, `commits` (hash, repo, author, message, time), `refs` (branch → commit)
+
+**Pages:** repo list → repo page → commit list → commit detail (wiring diff + code diff)
+
+**Order:** `server/push-pull` → `server/postgres` → `server/api` → `web/pages` → `infra/docker`
+(starts after Part 1 step 11: push/pull between two local folders)
+
+**Done when:** one person runs `kirch push`, another runs `kirch pull`, and both see the commit on the website.
+
 ## Part 3 — Probe (Wi-Fi only, no USB)
 - ESP32-S3, JSON readings, battery powered
 - Wi-Fi setup over Bluetooth from a phone (first time only)
@@ -121,14 +151,15 @@ kirch/
 
 - OTA firmware updates for the circuit board
 - Cloud mode (AWS IoT Core)
-- Deployment / hosting (AWS or simpler)
-- Big files (photos, binaries) → S3-style storage
+- Deploy to AWS (EC2, RDS, S3, Amplify — see Part 2 stack)
+- Big files (photos, binaries) → S3
 - Pull requests, comments, auth
 - KiCad import
 - Network protocol hardening (auth, resume, large repos)
 
 ## Open Questions
-- Exact `netlist.json` format — blocks step 8
-- Merge strategy for netlists (conflicts in wiring?) — blocks step 10
+- ~~Exact `netlist.json` format — blocks step 8~~ → decided 2026-11-13 (`docs/formats.md`)
+- ~~Merge strategy for netlists — blocks step 10~~ → v1 decided 2026-11-13 (per pin)
 - Which LLM model / cost limits for agent — blocks Part 4
-- Hosting choice — blocks Part 2
+- ~~Hosting choice — blocks Part 2~~ → decided 2026-11-13 (Docker locally, AWS when deployed)
+- Pin names per board model (`U1.GPIO9` vs `U1.9`) — see `docs/formats.md`
