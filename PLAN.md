@@ -6,6 +6,10 @@ Personal project. Core pieces built **from scratch**.
 
 **Status: plan locked 2026-11-12.** Changes from here = new decision entry.
 
+**How we use this file:** one checklist for both of us. Whoever does an item ticks it.
+`[x]` done · `[~]` built, not tested yet · `[ ]` to do.
+Work happens on branches; nothing is merged into `main` until the end.
+
 ---
 
 ## The 5 Parts
@@ -14,7 +18,7 @@ Personal project. Core pieces built **from scratch**.
 |---|---|---|---|
 | 1 | **`kirch` CLI** | Memory | Own git: commit, branch, diff, checkout, revert, merge, push |
 | 2 | **Platform** | Sharing | GitHub-like server + website |
-| 3 | **Probe** | Eyes | ESP32-S3 reads real board |
+| 3 | **Probe** | Eyes | ESP32-S3 reads real board, over Wi-Fi |
 | 4 | **Agent** | Brain | Uses history + probe to find problems and suggest fixes |
 | 5 | **3D View** | Face | 3D model of the circuit for every commit, with 3D diff |
 
@@ -40,6 +44,7 @@ Personal project. Core pieces built **from scratch**.
 |---|---|
 | 2026-11-13 | **Data formats** set in [`docs/formats.md`](docs/formats.md): `parts.json`, `netlist.json`, `layout.json`, `capture.json`. Netlist merge v1 = per pin, conflict only when both sides move the same pin. |
 | 2026-11-13 | **Part 2 stack + hosting** chosen (see Part 2). Local Docker first, AWS when deployed. |
+| 2026-11-13 | **One shared checklist**, no per-person split. Branches only; merge into `main` at the end. |
 
 ---
 
@@ -53,13 +58,20 @@ Personal project. Core pieces built **from scratch**.
 └── objects/       → blobs, trees, commits (SHA-1 named, zlib)
 ```
 
-**A commit stores:** `netlist.json`, `parts.json`, `layout.json`, `firmware/`, later `capture.json` (probe readings).
+**A commit stores:** `netlist.json`, `parts.json`, `layout.json`, `firmware/`, `capture.json` (probe readings).
 
 ---
 
-## Part 1 — `kirch` CLI (NOW)
+## Checklist
 
-**Layout**
+### 0 — Foundations
+- [x] Plan (`PLAN.md`)
+- [x] Data formats — [`docs/formats.md`](docs/formats.md)
+- [x] Part 2 stack + hosting decided
+- [ ] Repo setup: folder layout, `.gitignore`, CI (build + test)
+
+### Part 1 — `kirch` CLI
+
 ```
 kirch/
 ├── main.go
@@ -67,36 +79,25 @@ kirch/
 └── internal/   ← engine: repo, objects, index, refs, diff, merge
 ```
 
-**Steps**
-1. Object store — hash, compress, save, read ← **next**
-2. `init`
-3. `add` + index
-4. `commit`
-5. `log` 🎯 *working history tool*
-6. `status`
-7. `branch` / `checkout`
-8. `diff` + **wiring diff** for netlist 🎯
-9. `reset` / `revert`
-10. `merge`
-11. `push` / `pull` / `clone` to local folder 🎯 *Part 1 done*
+Per step: engine code → test → Cobra command → try it → compare with real git.
 
-**Per step:** engine code → test → Cobra command → try it → compare with real git.
+- [ ] 1. Object store — hash, compress, save, read
+  - `HashObject(type, data) → sha` — header + SHA-1 + zlib, write `.kirch/objects/ab/cdef…`
+  - `ReadObject(sha) → (type, data)` — decompress, parse header, check size
+  - Tests: our hash == `git hash-object` for same content
+  - Blobs first; trees + commits come with `commit` step
+- [ ] 2. `init`
+- [ ] 3. `add` + index (rewrites JSON files to canonical form — see `docs/formats.md`)
+- [ ] 4. `commit`
+- [ ] 5. `log` 🎯 *working history tool*
+- [ ] 6. `status`
+- [ ] 7. `branch` / `checkout`
+- [ ] 8. `diff` + **wiring diff** for netlist 🎯
+- [ ] 9. `reset` / `revert`
+- [ ] 10. `merge` (netlist: per pin)
+- [ ] 11. `push` / `pull` / `clone` to local folder 🎯 *Part 1 done*
 
-**Step 1 detail — `internal/objects`**
-- `HashObject(type, data) → sha` — header + SHA-1 + zlib, write `.kirch/objects/ab/cdef…`
-- `ReadObject(sha) → (type, data)` — decompress, parse header, check size
-- Tests: our hash == `git hash-object` for same content
-- Blobs first; trees + commits come with `commit` step
-
----
-
-## Part 2 — Platform
-- Go server, push/pull over HTTP (own simple protocol)
-- Postgres: users, repos, commit summaries
-- Next.js + TS + Tailwind site: repos, commits, diff view
-- Run locally in Docker first
-
-**Stack**
+### Part 2 — Platform
 
 | Piece | Choice |
 |---|---|
@@ -110,52 +111,67 @@ kirch/
 | Tests | Go `testing` + a real Postgres in Docker |
 | Hosting (when deployed) | AWS: EC2 + EBS (server and repos) · RDS (Postgres) · S3 (big files) · Amplify (website) |
 
-**Tables:** `users`, `repos`, `commits` (hash, repo, author, message, time), `refs` (branch → commit)
+Tables: `users`, `repos`, `commits` (hash, repo, author, message, time), `refs` (branch → commit).
+Starts after Part 1 step 11.
 
-**Pages:** repo list → repo page → commit list → commit detail (wiring diff + code diff)
+- [ ] Server push / pull over HTTP
+- [ ] Postgres tables + migrations, commit summaries written on push
+- [ ] API for the website: repos, commits, one commit, diff
+- [ ] Website: repo list → repo page → commit list → commit detail (wiring diff + code diff)
+- [ ] Docker Compose: everything with one command
+- [ ] 🎯 *Part 2 done:* one person `kirch push`es, another `kirch pull`s, both see the commit on the website
 
-**Order:** `server/push-pull` → `server/postgres` → `server/api` → `web/pages` → `infra/docker`
-(starts after Part 1 step 11: push/pull between two local folders)
+### Part 3 — Probe (Wi-Fi only, no USB)
 
-**Done when:** one person runs `kirch push`, another runs `kirch pull`, and both see the commit on the website.
+Firmware in [`firmware/`](firmware/README.md).
 
-## Part 3 — Probe (Wi-Fi only, no USB)
-- ESP32-S3, JSON readings, battery powered
-- Wi-Fi setup over Bluetooth from a phone (first time only)
-- Found on the network as `kirch-probe.local` (mDNS)
-- Streams readings over WebSocket; numbered so dropped ones are re-sent
-- `kirch probe pair` → pair once with a shared key
-- `kirch capture` → `capture.json`, attach to commits
-- Fallback: probe creates its own Wi-Fi network when the local one blocks devices
-- Probe firmware updates over Wi-Fi (OTA) — USB is only used once, to flash the very first firmware
+- [~] Probe firmware: reads 6 probes (analog / digital / pulse), one reading per second
+- [~] Wi-Fi setup over Bluetooth from a phone (first time only)
+- [~] Found on the network as `kirch-probe.local` (mDNS)
+- [~] Streams readings over WebSocket; numbered so dropped ones are re-sent
+- [x] Laptop tools: `probe_listen.py`, `fake_probe.py` (test without hardware)
+- [ ] Tested on the real ESP32 (checklist in `firmware/README.md`)
+- [ ] Pairing with a shared key → `kirch probe pair`
+- [ ] Probe firmware updates over Wi-Fi (OTA) — USB only for the very first flash
+- [ ] Fallback: probe creates its own Wi-Fi when the local one blocks devices
+- [ ] Battery level + low-battery warning, OLED screens
+- [ ] Hardware timers for very short pulses (10 µs HC-SR04 trigger)
+- [ ] `kirch capture` → `capture.json`, attached to commits
+- [ ] `kirch verify` — live board vs current commit
+- [ ] 🎯 *Part 3 done:* a commit includes real readings sent over Wi-Fi
 
-## Part 4 — Agent
-- `kirch debug "<problem>"` — reads commits + probe, narrows cause, suggests fix
-- `kirch fix` — proposes fix as new branch
-- `kirch explain` — wiring diff in plain English
-- `kirch bisect --auto` — finds commit that broke a signal
-- LLM (Claude) + tool use; tools = our engine + probe
+### Part 4 — Agent
+LLM (Claude) + tool use; tools = our engine + probe.
 
----
+- [ ] `kirch explain` — wiring diff in plain English
+- [ ] `kirch debug "<problem>"` — reads commits + probe, narrows cause, suggests fix
+- [ ] `kirch fix` — proposes fix as new branch
+- [ ] `kirch bisect --auto` — finds commit that broke a signal
+- [ ] 🎯 *Part 4 done:* `kirch debug` finds a real cause from history + probe readings
 
-## Part 5 — 3D View
+### Part 5 — 3D View
 - Main way to see a commit on the website
 - Built in the browser (React Three Fiber / Three.js) from `netlist.json` + `layout.json` — no 3D file stored in commits
 - Part models in glTF (converted from KiCad's free 3D library)
-- 3D diff: added wires green, removed red, moved parts highlighted
-- Live probe values shown on the wires (green/red per connection)
-- 2D breadboard editor to enter the layout
 - Photo only as last resort, for what 3D can't show (crossed, short or rigid wires)
 
-## Later (plan after Part 5)
+- [ ] 2D breadboard editor to enter the layout
+- [ ] 3D viewer
+- [ ] 3D diff: added wires green, removed red, moved parts highlighted
+- [ ] Live probe values on the wires (green/red per connection)
+- [ ] 🎯 *Part 5 done:* every commit on the website shows a 3D model you can rotate
 
-- OTA firmware updates for the circuit board
-- Cloud mode (AWS IoT Core)
-- Deploy to AWS (EC2, RDS, S3, Amplify — see Part 2 stack)
-- Big files (photos, binaries) → S3
-- Pull requests, comments, auth
-- KiCad import
-- Network protocol hardening (auth, resume, large repos)
+### Later (after Part 5)
+- [ ] Deploy to AWS (EC2, RDS, S3, Amplify — see Part 2 stack)
+- [ ] Big files (photos, binaries) → S3
+- [ ] OTA firmware updates for the circuit board
+- [ ] Cloud mode (AWS IoT Core)
+- [ ] Pull requests, comments, auth
+- [ ] KiCad import
+- [ ] Network protocol hardening (auth, resume, large repos)
+- [ ] Merge all branches into `main`
+
+---
 
 ## Open Questions
 - ~~Exact `netlist.json` format — blocks step 8~~ → decided 2026-11-13 (`docs/formats.md`)
