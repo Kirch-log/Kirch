@@ -139,7 +139,8 @@ the same JSON over Wi-Fi; Kirch adds which net each probe clip was on.
 |---|---|
 | `analog` | `mv`: `min`, `max`, `avg` (millivolts at the probe pin) |
 | `digital` | `state` (0/1), `transitions` |
-| `pulse` | `edges`, `period_us`, `high_us` (median over the window) |
+| `pulse` | `edges`, `period_us`, `high_us` (median over the window), `state` (level at window end) |
+| any | `dropped_edges` if the probe saw more edges than it could store (reading is partial) |
 
 - `net` links a probe to the netlist, so `kirch verify` can say
   "SERVO_SIG pulse width changed 1500 → 0 µs" instead of "P4 changed".
