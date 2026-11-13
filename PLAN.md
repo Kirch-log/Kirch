@@ -88,7 +88,10 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - Commands: `kirch hash-object [-w]`, `kirch cat-file -t|-s|-p`
   - Blobs first; trees + commits come with `commit` step
 - [x] 2. `init` (`internal/repo`: `Init`, `Find` from any subfolder; git accepts `.kirch` as a git dir)
-- [ ] 3. `add` + index (rewrites JSON files to canonical form — see `docs/formats.md`)
+- [x] 3. `add` + index (`internal/index`, `internal/canon`, `Repo.Add`; `kirch add`, `kirch ls-files`)
+  - Circuit files checked + rewritten to canonical form; one bad file → nothing staged, nothing rewritten
+  - Folders recursive, deleted files dropped, `.kirch`/`.git` skipped
+  - Tests: `kirch ls-files` == `git ls-files -s` for the same files
 - [ ] 4. `commit`
 - [ ] 5. `log` 🎯 *working history tool*
 - [ ] 6. `status`
