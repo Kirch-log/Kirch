@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 
 	"github.com/Kirch-log/kirch/internal/objects"
 	"github.com/spf13/cobra"
@@ -37,11 +36,11 @@ func init() {
 				fmt.Fprintln(c.OutOrStdout(), objects.Hash(objects.Blob, data))
 				return nil
 			}
-			root, err := findRepo()
+			r, err := currentRepo()
 			if err != nil {
 				return err
 			}
-			id, err := objects.NewStore(filepath.Join(root, dataDir, "objects")).Write(objects.Blob, data)
+			id, err := r.Objects.Write(objects.Blob, data)
 			if err != nil {
 				return err
 			}
@@ -58,11 +57,11 @@ func init() {
 		Short: "Show an object's type, size or content",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
-			root, err := findRepo()
+			r, err := currentRepo()
 			if err != nil {
 				return err
 			}
-			typ, content, err := objects.NewStore(filepath.Join(root, dataDir, "objects")).Read(args[0])
+			typ, content, err := r.Objects.Read(args[0])
 			if err != nil {
 				return err
 			}

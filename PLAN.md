@@ -87,7 +87,7 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - Tests: our ids == `git hash-object`; git reads our objects and we read git's
   - Commands: `kirch hash-object [-w]`, `kirch cat-file -t|-s|-p`
   - Blobs first; trees + commits come with `commit` step
-- [ ] 2. `init`
+- [x] 2. `init` (`internal/repo`: `Init`, `Find` from any subfolder; git accepts `.kirch` as a git dir)
 - [ ] 3. `add` + index (rewrites JSON files to canonical form — see `docs/formats.md`)
 - [ ] 4. `commit`
 - [ ] 5. `log` 🎯 *working history tool*
