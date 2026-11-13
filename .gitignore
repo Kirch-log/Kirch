@@ -1,0 +1,11 @@
+# Go build output
+/kirch
+/kirch.exe
+*.test
+*.out
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -68,7 +68,7 @@ Work happens on branches; nothing is merged into `main` until the end.
 - [x] Plan (`PLAN.md`)
 - [x] Data formats — [`docs/formats.md`](docs/formats.md)
 - [x] Part 2 stack + hosting decided
-- [ ] Repo setup: folder layout, `.gitignore`, CI (build + test)
+- [x] Repo setup: `go.mod`, `main.go` + `cmd/` + `internal/`, `.gitignore`, CI (Go build/vet/fmt/test, firmware tests + compile)
 
 ### Part 1 — `kirch` CLI
 
@@ -81,10 +81,11 @@ kirch/
 
 Per step: engine code → test → Cobra command → try it → compare with real git.
 
-- [ ] 1. Object store — hash, compress, save, read
-  - `HashObject(type, data) → sha` — header + SHA-1 + zlib, write `.kirch/objects/ab/cdef…`
-  - `ReadObject(sha) → (type, data)` — decompress, parse header, check size
-  - Tests: our hash == `git hash-object` for same content
+- [x] 1. Object store — hash, compress, save, read (`internal/objects`)
+  - `Hash(type, data)`, `Store.Write(type, data) → id` — header + SHA-1 + zlib, `.kirch/objects/ab/cdef…`
+  - `Store.Read(id) → (type, data)` — decompress, check header, size and hash
+  - Tests: our ids == `git hash-object`; git reads our objects and we read git's
+  - Commands: `kirch hash-object [-w]`, `kirch cat-file -t|-s|-p`
   - Blobs first; trees + commits come with `commit` step
 - [ ] 2. `init`
 - [ ] 3. `add` + index (rewrites JSON files to canonical form — see `docs/formats.md`)
