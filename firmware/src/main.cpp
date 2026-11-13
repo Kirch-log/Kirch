@@ -157,7 +157,7 @@ void onWifiEvent(arduino_event_t *event) {
 void startNetworkServices() {
   if (MDNS.begin(MDNS_HOSTNAME)) {
     MDNS.addService("kirch", "tcp", WS_PORT);
-    MDNS.addServiceTxt("kirch", "tcp", "id", deviceId);
+    MDNS.addServiceTxt("kirch", "tcp", "id", static_cast<const char *>(deviceId));
     MDNS.addServiceTxt("kirch", "tcp", "fw", KIRCH_FIRMWARE_VERSION);
     Serial.printf("[mdns] ws://%s.local:%u/\n", MDNS_HOSTNAME, WS_PORT);
   } else {
