@@ -34,7 +34,7 @@ Work happens on branches; nothing is merged into `main` until the end.
 - **Engine = clean Go functions** (`Commit()`, `Diff()`, `Log()`) so CLI *and* agent can call them
 - **Object format:** git-identical (`<type> <size>\0<content>`, zlib, same tree/commit layout) → hashes match `git hash-object`, real git = test oracle
 - **Hash:** SHA-1 (git default)
-- **Index:** simple JSON (path → hash, mode, mtime, size) — not git's binary DIRC
+- **Index:** simple JSON (path → hash, mode, mtime, size) — not git's binary DIRC; file is `.kirch/index.json`
 - **Agent never changes history alone** — suggests fixes as branches, user confirms
 - Old ReWeird code ignored — fresh start
 
@@ -45,6 +45,7 @@ Work happens on branches; nothing is merged into `main` until the end.
 | 2026-11-13 | **Data formats** set in [`docs/formats.md`](docs/formats.md): `parts.json`, `netlist.json`, `layout.json`, `capture.json`. Netlist merge v1 = per pin, conflict only when both sides move the same pin. |
 | 2026-11-13 | **Part 2 stack + hosting** chosen (see Part 2). Local Docker first, AWS when deployed. |
 | 2026-11-13 | **One shared checklist**, no per-person split. Branches only; merge into `main` at the end. |
+| 2026-11-13 | **Kirch-only files get a `.json` name** (`index.json`, `config.json`) so real git can read a `.kirch` folder (`git --git-dir=.kirch log`, `fsck --strict` pass). |
 
 ---
 
@@ -53,7 +54,8 @@ Work happens on branches; nothing is merged into `main` until the end.
 ```
 .kirch/
 ├── HEAD           → current branch
-├── index          → staging area (JSON)
+├── index.json     → staging area (JSON)
+├── config.json    → repo settings (user.name / user.email)
 ├── refs/heads/    → branches (file = commit hash)
 └── objects/       → blobs, trees, commits (SHA-1 named, zlib)
 ```
@@ -92,7 +94,8 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - Circuit files checked + rewritten to canonical form; one bad file → nothing staged, nothing rewritten
   - Folders recursive, deleted files dropped, `.kirch`/`.git` skipped
   - Tests: `kirch ls-files` == `git ls-files -s` for the same files
-- [ ] 4. `commit`
+- [x] 4. `commit` (tree + commit objects, `internal/refs` with lock + compare-and-swap, `kirch commit -m`, `kirch config [--global] user.name|user.email`)
+  - Tests: tree and commit ids == `git write-tree` / `git commit-tree`; `git log` and `git fsck --strict` accept `.kirch`
 - [ ] 5. `log` 🎯 *working history tool*
 - [ ] 6. `status`
 - [ ] 7. `branch` / `checkout`

@@ -10,7 +10,7 @@ jobs:
     name: Go (build, vet, format, test)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
@@ -24,7 +24,7 @@ jobs:
     name: Firmware logic tests (no ESP32)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - working-directory: firmware
         run: g++ -std=c++17 -Wall -Wextra -Werror -Iinclude test/test_host.cpp -o test_host && ./test_host
 
@@ -32,7 +32,7 @@ jobs:
     name: Firmware compile (ESP32-S3)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

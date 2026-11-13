@@ -1,5 +1,5 @@
 // Package index is the staging area: the list of files that the next commit
-// will contain. Stored as JSON in .kirch/index (not git's binary format):
+// will contain. Stored as JSON in .kirch/index.json (not git's binary .git/index):
 //
 //	{
 //	  "version": 1,

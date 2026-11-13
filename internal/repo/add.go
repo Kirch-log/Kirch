@@ -16,8 +16,9 @@ import (
 	"github.com/Kirch-log/kirch/internal/objects"
 )
 
-// IndexFile is the staging area's path inside .kirch.
-func (r *Repo) IndexFile() string { return filepath.Join(r.Dir, "index") }
+// IndexFile is the staging area inside .kirch. Named index.json (not index)
+// so real git, which expects its own binary index there, can still read .kirch.
+func (r *Repo) IndexFile() string { return filepath.Join(r.Dir, "index.json") }
 
 // LoadIndex reads the staging area.
 func (r *Repo) LoadIndex() (*index.Index, error) { return index.Load(r.IndexFile()) }
