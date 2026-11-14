@@ -44,11 +44,27 @@
 - [x] 12. Fixes after testing: `HEAD~1`, smarter revert, `origin/` in log, `.kirchignore`
 
 ### Part 2 — Platform
+Three tracks. **A** comes first (small) — it decides what the API must return. Push/pull server doesn't wait on A.
+
+**A. Product — what the platform has**
+- [ ] List the pages: repo list, repo page, commits, one commit, branches, compare two commits
+- [ ] What each page shows (wiring diff, firmware code diff, parts list, probe readings)
+- [ ] Who sees what: public / private repos, logins in v1 or later
+- [ ] What's in v1 vs later — written in `docs/platform.md`
+- [ ] API shape agreed by both of us (endpoints + JSON each returns)
+
+**B. Backend — the main server**
 - [ ] Server that accepts `kirch push` / `pull` over the internet — **🔨 Hridhayesh** (next up)
 - [ ] Database (Postgres) that records repos and commits
 - [ ] API the website reads from (repos, commits, diffs)
-- [ ] Website: repo list → commits → one commit with its wiring diff and code diff
 - [ ] Run everything locally with one command (Docker)
+- [ ] Tests against a real Postgres
+
+**C. Frontend — the website**
+- [ ] Pages from track A
+- [ ] Wiring diff view + firmware code diff
+- [ ] Connected to the API (fake data until the API is ready)
+
 - [ ] 🎯 Done when: one person pushes, another pulls, both see the commit on the website
 
 ### Part 3 — Probe (Wi-Fi only)
