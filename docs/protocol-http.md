@@ -1,4 +1,4 @@
-# Push / pull over the network
+# Push / pull over HTTP (reference for the TCP server)
 
 How `kirch clone / fetch / pull / push` talk to a Kirch server.
 Code: `internal/protocol` (wire format), `internal/server` (server side),
