@@ -224,3 +224,23 @@ func FilterPaths(files []diff.File, paths []string) []diff.File {
 	}
 	return out
 }
+
+// DiffParent compares commit id with its first parent: what that commit
+// changed. The first commit is compared with nothing (every file added).
+func (r *Repo) DiffParent(id string) ([]diff.File, error) {
+	c, err := r.ReadCommit(id)
+	if err != nil {
+		return nil, err
+	}
+	old := side{}
+	if len(c.Parents) > 0 {
+		if old, err = r.commitSide(c.Parents[0]); err != nil {
+			return nil, err
+		}
+	}
+	new, err := r.commitSide(id)
+	if err != nil {
+		return nil, err
+	}
+	return r.compare(old, new)
+}

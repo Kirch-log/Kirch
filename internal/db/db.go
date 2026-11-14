@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -360,22 +359,93 @@ func (d *DB) BranchTip(ctx context.Context, repoID int64, branch string) (string
 	return id, err
 }
 
-// History returns commits reachable from tip, newest committer date first
-// (ties: by id), skipping offset and returning at most limit.
+// History returns commits reachable from tip in kirch log's (and git log's)
+// default order: always the newest committer date next, ties in the order
+// the walk found them. It skips offset commits and returns at most limit.
+//
+// The order can't come from ORDER BY alone (ties, clock skew), so the
+// graph is loaded and walked here like repo.Log does.
 func (d *DB) History(ctx context.Context, repoID int64, tip string, limit, offset int) ([]Commit, error) {
 	rows, err := d.Pool.Query(ctx, `WITH RECURSIVE h(id) AS (
 			SELECT $2::text
 			UNION
 			SELECT p FROM commits c JOIN h ON c.repo_id = $1 AND c.id = h.id, unnest(c.parents) AS p
 		)
-		SELECT `+commitCols+` FROM commits c JOIN h ON c.id = h.id
-		WHERE c.repo_id = $1
-		ORDER BY c.committed_at DESC, c.id
-		LIMIT $3 OFFSET $4`, repoID, tip, limit, offset)
+		SELECT c.id, c.parents, extract(epoch FROM c.committed_at)::bigint
+		FROM commits c JOIN h ON c.id = h.id WHERE c.repo_id = $1`, repoID, tip)
 	if err != nil {
 		return nil, err
 	}
-	return pgx.CollectRows(rows, func(row pgx.CollectableRow) (Commit, error) { return scanCommit(row) })
+	type node struct {
+		parents []string
+		when    int64
+	}
+	graph := map[string]node{}
+	for rows.Next() {
+		var id string
+		var n node
+		if err := rows.Scan(&id, &n.parents, &n.when); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		graph[id] = n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if _, ok := graph[tip]; !ok {
+		return nil, ErrNotFound
+	}
+
+	// The walk: same as repo.Log / insertByDate.
+	type entry struct {
+		id   string
+		when int64
+	}
+	seen := map[string]bool{tip: true}
+	queue := []entry{{tip, graph[tip].when}}
+	var order []string
+	for len(queue) > 0 && len(order) < offset+limit {
+		e := queue[0]
+		queue = queue[1:]
+		order = append(order, e.id)
+		for _, p := range graph[e.id].parents {
+			n, ok := graph[p]
+			if seen[p] || !ok {
+				continue
+			}
+			seen[p] = true
+			i := 0
+			for i < len(queue) && queue[i].when >= n.when {
+				i++
+			}
+			queue = append(queue, entry{})
+			copy(queue[i+1:], queue[i:])
+			queue[i] = entry{p, n.when}
+		}
+	}
+	if offset >= len(order) {
+		return []Commit{}, nil
+	}
+	page := order[offset:]
+
+	rows, err = d.Pool.Query(ctx, `SELECT `+commitCols+` FROM commits c WHERE c.repo_id = $1 AND c.id = ANY($2)`, repoID, page)
+	if err != nil {
+		return nil, err
+	}
+	found, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (Commit, error) { return scanCommit(row) })
+	if err != nil {
+		return nil, err
+	}
+	byID := make(map[string]Commit, len(found))
+	for _, c := range found {
+		byID[c.ID] = c
+	}
+	out := make([]Commit, 0, len(page))
+	for _, id := range page {
+		out = append(out, byID[id])
+	}
+	return out, nil
 }
 
 // GetCommit finds a commit by full id or a prefix of 4+ characters.
@@ -399,11 +469,4 @@ func (d *DB) GetCommit(ctx context.Context, repoID int64, id string) (Commit, er
 		return Commit{}, ErrAmbiguous
 	}
 	return cs[0], nil
-}
-
-// IsUnavailable reports whether err means the database can't be reached
-// (as opposed to a bad query).
-func IsUnavailable(err error) bool {
-	var pe *pgconn.PgError
-	return err != nil && !errors.As(err, &pe) && !errors.Is(err, ErrNotFound) && !errors.Is(err, ErrAmbiguous)
 }

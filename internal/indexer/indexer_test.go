@@ -284,3 +284,56 @@ func TestIndexAllAndMigrateTwice(t *testing.T) {
 		t.Fatalf("second migrate: %v", err)
 	}
 }
+
+// Commits made in the same second must come out in kirch log's order, not
+// sorted by id.
+func TestHistoryTiesMatchKirchLog(t *testing.T) {
+	f := setup(t)
+	who := objects.Signature{Name: "E", Email: "e@x", When: time.Unix(1700000000, 0).UTC()}
+	mk := func(content, msg string) {
+		os.WriteFile(filepath.Join(f.r.Root, "a.txt"), []byte(content), 0o644)
+		f.r.Add([]string{f.r.Root})
+		if _, err := f.r.Commit(msg, who); err != nil {
+			t.Fatal(err)
+		}
+	}
+	mk("0", "base")
+	f.r.CreateBranch("side", "")
+	for i := 0; i < 4; i++ {
+		mk(fmt.Sprint("m", i), fmt.Sprint("main ", i))
+	}
+	f.r.Checkout("side")
+	for i := 0; i < 4; i++ {
+		os.WriteFile(filepath.Join(f.r.Root, "b.txt"), []byte(fmt.Sprint(i)), 0o644)
+		f.r.Add([]string{f.r.Root})
+		f.r.Commit(fmt.Sprint("side ", i), who)
+	}
+	f.r.Checkout("main")
+	if _, err := f.r.Merge("side", who); err != nil {
+		t.Fatal(err)
+	}
+	f.index()
+	want, _ := f.r.Log("main", 0)
+	row := f.repoRow()
+	tip, _ := f.d.BranchTip(context.Background(), row.ID, "main")
+	for _, pageSize := range []int{100, 3} {
+		var got []string
+		for off := 0; off < len(want); off += pageSize {
+			page, err := f.d.History(context.Background(), row.ID, tip, pageSize, off)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, c := range page {
+				got = append(got, c.ID)
+			}
+		}
+		if len(got) != len(want) {
+			t.Fatalf("page %d: %d commits, want %d", pageSize, len(got), len(want))
+		}
+		for i := range want {
+			if got[i] != want[i].ID {
+				t.Fatalf("page %d: position %d is %s, kirch log has %s", pageSize, i, got[i][:7], want[i].ID[:7])
+			}
+		}
+	}
+}

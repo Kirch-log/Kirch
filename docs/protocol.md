@@ -77,7 +77,7 @@ client                              server
   1. checks `new` and everything below it is stored (no missing objects),
   2. checks fast-forward: `old` must be an ancestor of `new` (or the branch is new),
   3. moves the branch only if it still points at `old` (someone else pushed first → `ERR stale`).
-- After `OK` the server indexes the repo into Postgres.
+- The server indexes the repo into Postgres, then sends `OK` (so once a push returns, the website shows it). The branch has already moved, so a failed index is logged, not refused.
 - Pushing to a repo that doesn't exist yet creates it (v1, no logins).
 
 ## Errors

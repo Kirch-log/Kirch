@@ -297,19 +297,19 @@ func (s *TCPServer) push(c *proto.Conn, owner, name string) error {
 			return err
 		}
 	}
-	if err := c.Send(proto.OK, proto.OKMsg{}); err != nil {
-		return err
-	}
-	if err := c.Flush(); err != nil {
-		return err
-	}
 	s.logf("push %s/%s %s %s -> %s (%d objects)", owner, name, u.Branch, short(u.Old), short(u.New), n)
+	// Index before saying OK, so once a push returns the website shows it.
+	// The branch has already moved: a failed index is logged, not refused,
+	// and the next push or a restart catches up.
 	if s.OnPush != nil {
 		if err := s.OnPush(context.Background(), owner, name); err != nil {
 			s.logf("index %s/%s after push: %v", owner, name, err)
 		}
 	}
-	return nil
+	if err := c.Send(proto.OK, proto.OKMsg{}); err != nil {
+		return err
+	}
+	return c.Flush()
 }
 
 func short(id string) string {
