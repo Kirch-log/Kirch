@@ -53,12 +53,15 @@ Three tracks. **A** comes first (small) — it decides what the API must return.
 - [ ] What's in v1 vs later — written in `docs/platform.md`
 - [ ] API shape agreed by both of us (endpoints + JSON each returns)
 
-**B. Backend — the main server** — **🔨 Evin** (except push/pull server)
-- [ ] Server that accepts `kirch push` / `pull` over the internet — **🔨 Hridhayesh** (next up)
-- [ ] Database (Postgres) that records repos and commits — **🔨 Evin**
-- [ ] API the website reads from (repos, commits, diffs) — **🔨 Evin**
-- [ ] Run everything locally with one command (Docker) — **🔨 Evin**
-- [ ] Tests against a real Postgres — **🔨 Evin**
+**B. Backend — the main server** — **🔨 Evin** (whole track, incl. push/pull)
+- [ ] Protocol spec for push/pull — `docs/protocol.md` (custom TCP + TLS, `kirch://`, port 9418)
+- [ ] TCP push/pull server: HELLO, REFS, WANT/HAVE, PACK, UPDATE, OK/ERR
+- [ ] `kirch push` / `pull` / `clone` speak `kirch://` (engine sees a `Remote` interface)
+- [ ] Database (Postgres) that records repos and commits
+- [ ] Indexer: `IndexRepo()` copies commits + branches into Postgres after each push
+- [ ] HTTP API the website reads from (repos, commits, diffs) — port 8080
+- [ ] Run everything locally with one command (Docker)
+- [ ] Tests against a real Postgres
 
 **C. Frontend — the website**
 - [ ] Pages from track A
@@ -116,6 +119,8 @@ Three tracks. **A** comes first (small) — it decides what the API must return.
 - Kirch's own files end in `.json` (`index.json`, `config.json`) so git can still read the folder.
 - Netlists merge **net by net**: two branches changing the same net differently = conflict (changed 2026-11-14 from "per pin", which could short pins).
 - Platform stack: Go server + Postgres + Next.js website; Docker locally, AWS when online.
+- Push/pull uses **our own TCP protocol** (`kirch://`, TLS, port 9418), built from scratch; the website uses **HTTP** (port 8080), since browsers can't open raw TCP (changed 2026-11-14 from HTTP + JSON push/pull).
+- Postgres is only an index; the repo folders on the server are the source of truth (Postgres can be rebuilt from them).
 - The AI never changes history by itself — it only suggests fixes on a new branch.
 - The probe is Wi-Fi only; USB just for the very first flash.
 
