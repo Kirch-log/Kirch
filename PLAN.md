@@ -72,6 +72,7 @@ Work happens on branches; nothing is merged into `main` until the end.
 - [x] Data formats — [`docs/formats.md`](docs/formats.md)
 - [x] Part 2 stack + hosting decided
 - [x] Repo setup: `go.mod`, `main.go` + `cmd/` + `internal/`, `.gitignore`, CI (Go build/vet/fmt/test, firmware tests + compile)
+- [ ] CD: tag `v*` → GitHub Release with `kirch` for Windows / Mac / Linux + probe firmware `.bin` — **🔨 Hridhayesh**
 
 ### Part 1 — `kirch` CLI
 
