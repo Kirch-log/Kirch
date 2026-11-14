@@ -105,7 +105,11 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - Circuit files compared in canonical form: only reformatted = not changed
   - Files with unchanged size + mtime skip re-hashing, except ones as new as the index
   - Tests: `kirch status --porcelain` == `git status --porcelain` byte for byte (same commit + index)
-- [ ] 7. `branch` / `checkout`
+- [x] 7. `branch` / `checkout` (`Repo.CreateBranch`, `DeleteBranch`, `Checkout`, `IsAncestor`)
+  - `kirch branch [name [start]]`, `-d` (only if merged) / `-D`; `kirch checkout <branch>`, `checkout -b <new> [start]`
+  - Checkout keeps uncommitted changes to files that are the same on both branches; refuses (changes nothing) if a changed file differs or an untracked file is in the way
+  - Checking out a bare commit id (detached HEAD) not supported — make a branch from it instead
+  - Tests: `kirch branch` == `git branch`; after checkout index + files == `git ls-tree -r`, `git symbolic-ref HEAD` agrees, `git fsck` passes
 - [ ] 8. `diff` + **wiring diff** for netlist 🎯
 - [ ] 9. `reset` / `revert`
 - [ ] 10. `merge` (netlist: per pin)

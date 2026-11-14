@@ -174,3 +174,67 @@ func (s *Store) Branches() (map[string]string, error) {
 	})
 	return out, err
 }
+
+// SetHead makes HEAD point to a branch (the branch may have no commits yet).
+func (s *Store) SetHead(branch string) error {
+	if err := CheckBranchName(branch); err != nil {
+		return err
+	}
+	path := filepath.Join(s.Dir, "HEAD")
+	lock := path + ".lock"
+	f, err := os.OpenFile(lock, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if errors.Is(err, os.ErrExist) {
+		return ErrLocked
+	}
+	if err != nil {
+		return err
+	}
+	_, err = f.WriteString("ref: refs/heads/" + branch + "\n")
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil {
+		err = os.Rename(lock, path)
+	}
+	if err != nil {
+		os.Remove(lock)
+	}
+	return err
+}
+
+// DeleteBranch removes a branch, but only if it still points at oldID.
+func (s *Store) DeleteBranch(name, oldID string) error {
+	if err := CheckBranchName(name); err != nil {
+		return err
+	}
+	path := s.branchPath(name)
+	lock := path + ".lock"
+	f, err := os.OpenFile(lock, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if errors.Is(err, os.ErrExist) {
+		return ErrLocked
+	}
+	if err != nil {
+		return err
+	}
+	f.Close()
+	defer os.Remove(lock)
+	current, err := s.Branch(name)
+	if err != nil {
+		return err
+	}
+	if current != oldID {
+		return ErrStale
+	}
+	if err := os.Remove(path); err != nil {
+		return err
+	}
+	os.Remove(lock)
+	// Drop folders left empty by names like feature/x.
+	heads := filepath.Join(s.Dir, "refs", "heads")
+	for dir := filepath.Dir(path); dir != heads; dir = filepath.Dir(dir) {
+		if os.Remove(dir) != nil {
+			break
+		}
+	}
+	return nil
+}
