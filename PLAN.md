@@ -100,7 +100,11 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - Revisions: `HEAD`, branch name, full or short (4+ chars) commit id
   - Order = git's default (newest committer date first), merges included
   - Tests: commit order == `git rev-list`; printed output == `git log --decorate=short` byte for byte
-- [ ] 6. `status`
+- [x] 6. `status` (`Repo.Status`, `Repo.TreeFiles`; `kirch status [-s|--porcelain]`)
+  - Staged (last commit → index), not staged (index → files), untracked (folder with nothing tracked = `dir/`)
+  - Circuit files compared in canonical form: only reformatted = not changed
+  - Files with unchanged size + mtime skip re-hashing, except ones as new as the index
+  - Tests: `kirch status --porcelain` == `git status --porcelain` byte for byte (same commit + index)
 - [ ] 7. `branch` / `checkout`
 - [ ] 8. `diff` + **wiring diff** for netlist 🎯
 - [ ] 9. `reset` / `revert`
