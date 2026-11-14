@@ -189,9 +189,46 @@ func decode(raw []byte) (Type, []byte, error) {
 
 // ValidID reports whether s looks like an object id (40 lowercase hex chars).
 func ValidID(s string) bool {
-	if len(s) != 40 {
-		return false
+	return len(s) == 40 && isHex(s)
+}
+
+// ErrAmbiguous means a short id matches more than one object.
+var ErrAmbiguous = errors.New("short id is ambiguous")
+
+// Expand turns a short id (at least 4 hex chars) into the full id of the one
+// stored object that starts with it.
+func (s *Store) Expand(prefix string) (string, error) {
+	if len(prefix) < 4 || len(prefix) > 40 || !isHex(prefix) {
+		return "", fmt.Errorf("%q is not an object id", prefix)
 	}
+	if len(prefix) == 40 {
+		if !s.Has(prefix) {
+			return "", fmt.Errorf("%w: %s", ErrNotFound, prefix)
+		}
+		return prefix, nil
+	}
+	names, err := os.ReadDir(filepath.Join(s.Dir, prefix[:2]))
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return "", err
+	}
+	found := ""
+	for _, n := range names {
+		id := prefix[:2] + n.Name()
+		if !ValidID(id) || id[:len(prefix)] != prefix {
+			continue
+		}
+		if found != "" {
+			return "", fmt.Errorf("%w: %s", ErrAmbiguous, prefix)
+		}
+		found = id
+	}
+	if found == "" {
+		return "", fmt.Errorf("%w: %s", ErrNotFound, prefix)
+	}
+	return found, nil
+}
+
+func isHex(s string) bool {
 	for _, c := range s {
 		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f') {
 			return false

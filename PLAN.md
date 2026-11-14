@@ -96,7 +96,10 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - Tests: `kirch ls-files` == `git ls-files -s` for the same files
 - [x] 4. `commit` (tree + commit objects, `internal/refs` with lock + compare-and-swap, `kirch commit -m`, `kirch config [--global] user.name|user.email`)
   - Tests: tree and commit ids == `git write-tree` / `git commit-tree`; `git log` and `git fsck --strict` accept `.kirch`
-- [ ] 5. `log` 🎯 *working history tool*
+- [x] 5. `log` 🎯 *working history tool* (`Repo.Log`, `Repo.Resolve`; `kirch log [rev] [-n N] [--oneline]`)
+  - Revisions: `HEAD`, branch name, full or short (4+ chars) commit id
+  - Order = git's default (newest committer date first), merges included
+  - Tests: commit order == `git rev-list`; printed output == `git log --decorate=short` byte for byte
 - [ ] 6. `status`
 - [ ] 7. `branch` / `checkout`
 - [ ] 8. `diff` + **wiring diff** for netlist 🎯

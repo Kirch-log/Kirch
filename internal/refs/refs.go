@@ -145,3 +145,32 @@ func CheckBranchName(name string) error {
 	}
 	return nil
 }
+
+// Branches returns every branch and the commit it points to.
+func (s *Store) Branches() (map[string]string, error) {
+	heads := filepath.Join(s.Dir, "refs", "heads")
+	out := map[string]string{}
+	err := filepath.WalkDir(heads, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) && p == heads {
+				return nil
+			}
+			return err
+		}
+		if d.IsDir() || strings.HasSuffix(p, ".lock") {
+			return nil
+		}
+		rel, err := filepath.Rel(heads, p)
+		if err != nil {
+			return err
+		}
+		name := filepath.ToSlash(rel)
+		id, err := s.Branch(name)
+		if err != nil {
+			return err
+		}
+		out[name] = id
+		return nil
+	})
+	return out, err
+}
