@@ -1,0 +1,7 @@
+.git
+.github
+firmware/.pio
+data
+kirch
+kirch-server
+*.test

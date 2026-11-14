@@ -6,11 +6,19 @@
 #
 #   scripts/e2e-server.sh                         # push / pull only
 #   KIRCH_DATABASE_URL=postgres://... scripts/e2e-server.sh   # + indexer + API
+#   E2E_DOCKER=1 scripts/e2e-server.sh            # against docker compose (own project, removed after)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 WORK="$(mktemp -d)"
-trap 'kill "${SERVER_PID:-}" 2>/dev/null || true; wait 2>/dev/null || true; rm -rf "$WORK"' EXIT
+COMPOSE=(docker compose -f "$ROOT/compose.yaml" -p kirch-e2e)
+cleanup() {
+  kill "${SERVER_PID:-}" 2>/dev/null || true
+  wait 2>/dev/null || true
+  if [ "${E2E_DOCKER:-}" = 1 ]; then "${COMPOSE[@]}" down -v >/dev/null 2>&1 || true; fi
+  rm -rf "$WORK"
+}
+trap cleanup EXIT
 
 step() { printf '\n== %s\n' "$*"; }
 fail() { printf 'FAIL: %s\n' "$*" >&2; [ -f "$WORK/server.log" ] && tail -20 "$WORK/server.log" >&2; exit 1; }
@@ -20,18 +28,29 @@ step "build"
 K="$WORK/bin/kirch"
 
 free_port() { python3 -c 'import socket; s=socket.socket(); s.bind(("127.0.0.1",0)); print(s.getsockname()[1])'; }
-TCP_PORT=$(free_port); HTTP_PORT=$(free_port)
 
-step "start server (tcp :$TCP_PORT, http :$HTTP_PORT)"
-KIRCH_DATA_DIR="$WORK/data" KIRCH_TCP_ADDR="127.0.0.1:$TCP_PORT" KIRCH_HTTP_ADDR="127.0.0.1:$HTTP_PORT" \
-  "$WORK/bin/kirch-server" >"$WORK/server.log" 2>&1 &
-SERVER_PID=$!
-for _ in $(seq 50); do
-  [ -f "$WORK/data/tls/cert.pem" ] && grep -q "listening" "$WORK/server.log" && break
-  sleep 0.1
-done
-grep -q "kirch:// listening" "$WORK/server.log" || fail "server did not start"
-export KIRCH_CA_FILE="$WORK/data/tls/cert.pem"
+if [ "${E2E_DOCKER:-}" = 1 ]; then
+  step "start docker compose (project kirch-e2e)"
+  "${COMPOSE[@]}" up -d --build --wait >/dev/null 2>"$WORK/compose.log" || { cat "$WORK/compose.log"; fail "compose up"; }
+  TCP_PORT=9418; HTTP_PORT=8080
+  "${COMPOSE[@]}" cp server:/data/tls/cert.pem "$WORK/cert.pem" >/dev/null
+  export KIRCH_CA_FILE="$WORK/cert.pem"
+  KIRCH_DATABASE_URL=docker
+  server_repo() { rm -rf "$WORK/srvcopy"; "${COMPOSE[@]}" cp "server:/data/repos/evin/servo-board/.kirch" "$WORK/srvcopy" >/dev/null; echo "$WORK/srvcopy"; }
+else
+  TCP_PORT=$(free_port); HTTP_PORT=$(free_port)
+  step "start server (tcp :$TCP_PORT, http :$HTTP_PORT)"
+  KIRCH_DATA_DIR="$WORK/data" KIRCH_TCP_ADDR="127.0.0.1:$TCP_PORT" KIRCH_HTTP_ADDR="127.0.0.1:$HTTP_PORT" \
+    "$WORK/bin/kirch-server" >"$WORK/server.log" 2>&1 &
+  SERVER_PID=$!
+  for _ in $(seq 50); do
+    [ -f "$WORK/data/tls/cert.pem" ] && grep -q "listening" "$WORK/server.log" && break
+    sleep 0.1
+  done
+  grep -q "kirch:// listening" "$WORK/server.log" || fail "server did not start"
+  export KIRCH_CA_FILE="$WORK/data/tls/cert.pem"
+  server_repo() { echo "$WORK/data/repos/evin/servo-board/.kirch"; }
+fi
 URL="kirch://127.0.0.1:$TCP_PORT/evin/servo-board"
 
 netlist() { printf '{"format":"kirch.netlist/1","nets":{"GND":["SERVO1.GND","U1.GND"],"SIG":["SERVO1.SIG","%s"]}}' "$1" > netlist.json; }
@@ -72,7 +91,7 @@ grep -q "pull first" "$WORK/refused.txt" || fail "refusal message: $(cat "$WORK/
 "$K" log --oneline | head -5
 
 step "git checks the server's copy"
-SRV="$WORK/data/repos/evin/servo-board/.kirch"
+SRV="$(server_repo)"
 git --git-dir="$SRV" fsck --strict
 [ "$(git --git-dir="$SRV" rev-parse main)" = "$(cd "$WORK/hb" && git --git-dir=.kirch rev-parse main)" ] || fail "server main != hb main"
 

@@ -53,15 +53,15 @@ Three tracks. **A** comes first (small) — it decides what the API must return.
 - [ ] What's in v1 vs later — written in `docs/platform.md`
 - [ ] API shape agreed by both of us (endpoints + JSON each returns)
 
-**B. Backend — the main server** — **🔨 Evin** (whole track, incl. push/pull)
-- [ ] Protocol spec for push/pull — `docs/protocol.md` (custom TCP + TLS, `kirch://`, port 9418)
-- [ ] TCP push/pull server: HELLO, REFS, WANT/HAVE, PACK, UPDATE, OK/ERR
-- [ ] `kirch push` / `pull` / `clone` speak `kirch://` (engine sees a `Remote` interface)
-- [ ] Database (Postgres) that records repos and commits
-- [ ] Indexer: `IndexRepo()` copies commits + branches into Postgres after each push
-- [ ] HTTP API the website reads from (repos, commits, diffs) — port 8080
-- [ ] Run everything locally with one command (Docker)
-- [ ] Tests against a real Postgres
+**B. Backend — the main server** — **Evin** ✅ (branch `server-backend/Evin`)
+- [x] Protocol spec for push/pull — [`docs/protocol.md`](docs/protocol.md) (custom TCP + TLS, `kirch://`, port 9418)
+- [x] TCP push/pull server: HELLO, REFS, WANT/HAVE, OBJ, DONE, UPDATE, OK/ERR
+- [x] `kirch push` / `pull` / `clone` speak `kirch://` (engine talks to folders and servers through one interface)
+- [x] Database (Postgres) that records repos and commits
+- [x] Indexer: `IndexRepo()` copies commits + branches into Postgres after each push (and for every repo at start)
+- [x] HTTP API the website reads from (repos, commits, diffs) — port 8080
+- [x] Run everything locally with one command (`docker compose up --build`)
+- [x] Tests against a real Postgres (CI too) + end-to-end script `scripts/e2e-server.sh`
 
 **C. Frontend — the website**
 - [ ] Pages from track A
@@ -121,6 +121,7 @@ Three tracks. **A** comes first (small) — it decides what the API must return.
 - Platform stack: Go server + Postgres + Next.js website; Docker locally, AWS when online.
 - Push/pull uses **our own TCP protocol** (`kirch://`, TLS, port 9418), built from scratch; the website uses **HTTP** (port 8080), since browsers can't open raw TCP (changed 2026-11-14 from HTTP + JSON push/pull).
 - Postgres is only an index; the repo folders on the server are the source of truth (Postgres can be rebuilt from them).
+- Server uses Go's standard HTTP router and its own small migration runner (no chi / sqlc / goose); only new dependency is the `pgx` Postgres driver (2026-11-14).
 - The AI never changes history by itself — it only suggests fixes on a new branch.
 - The probe is Wi-Fi only; USB just for the very first flash.
 

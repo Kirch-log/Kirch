@@ -9,3 +9,8 @@
 .idea/
 .DS_Store
 Thumbs.db
+/kirch-server
+
+# Local server data and dev certificate
+/data/
+kirch-dev-cert.pem

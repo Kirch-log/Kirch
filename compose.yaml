@@ -1,0 +1,40 @@
+# Kirch server + Postgres on your machine:
+#   docker compose up --build
+# kirch:// on localhost:9418, HTTP API on http://localhost:8080
+# Trust the dev certificate once:
+#   docker compose cp server:/data/tls/cert.pem kirch-dev-cert.pem
+#   export KIRCH_CA_FILE=$PWD/kirch-dev-cert.pem
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: kirch
+      POSTGRES_PASSWORD: kirch
+      POSTGRES_DB: kirch
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kirch -d kirch"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      KIRCH_DATABASE_URL: postgres://kirch:kirch@db:5432/kirch?sslmode=disable
+      KIRCH_TLS_HOSTS: localhost
+    ports:
+      - "9418:9418"
+      - "8080:8080"
+    volumes:
+      - repos:/data
+
+volumes:
+  pgdata:
+  repos:
