@@ -136,7 +136,7 @@ func (r *Repo) untracked(idx *index.Index) ([]string, error) {
 	}
 	seen := map[string]bool{}
 	var out []string
-	err := r.walk(r.Root, func(_, rel string) error {
+	err := r.walk(r.Root, idx, func(_, rel string) error {
 		if _, ok := idx.Entries[rel]; ok {
 			return nil
 		}

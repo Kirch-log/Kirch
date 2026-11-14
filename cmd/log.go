@@ -44,7 +44,9 @@ func init() {
 }
 
 // decorations maps commit ids to the branch labels git log shows next to
-// them: "HEAD -> <current>" first, then other branches in reverse name order.
+// them: "HEAD -> <current>" first, then the other branches and remote
+// branches (origin/main) in reverse order of their full ref name
+// (refs/remotes/… before refs/heads/…), which is the order git uses.
 func decorations(r *repo.Repo) (map[string][]string, error) {
 	current, _, err := r.Refs().Head()
 	if err != nil {
@@ -54,19 +56,33 @@ func decorations(r *repo.Repo) (map[string][]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	names := make([]string, 0, len(branches))
-	for name := range branches {
-		names = append(names, name)
+	type ref struct{ full, label, id string }
+	var all []ref
+	for name, id := range branches {
+		if name != current {
+			all = append(all, ref{"refs/heads/" + name, name, id})
+		}
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(names)))
+	remotes, err := r.Remotes()
+	if err != nil {
+		return nil, err
+	}
+	for remote := range remotes {
+		rb, err := r.Refs().RemoteBranches(remote)
+		if err != nil {
+			return nil, err
+		}
+		for name, id := range rb {
+			all = append(all, ref{"refs/remotes/" + remote + "/" + name, remote + "/" + name, id})
+		}
+	}
+	sort.Slice(all, func(i, j int) bool { return all[i].full > all[j].full })
 	labels := map[string][]string{}
 	if id := branches[current]; id != "" {
 		labels[id] = []string{"HEAD -> " + current}
 	}
-	for _, name := range names {
-		if name != current {
-			labels[branches[name]] = append(labels[branches[name]], name)
-		}
+	for _, ref := range all {
+		labels[ref.id] = append(labels[ref.id], ref.label)
 	}
 	return labels, nil
 }

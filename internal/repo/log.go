@@ -12,9 +12,73 @@ import (
 var ErrNoCommits = errors.New("the current branch has no commits yet")
 
 // Resolve turns a revision into a commit id. A revision is "HEAD" (or ""),
-// a branch name, or a full or short (4+ chars) commit id. Branch names win
-// over short ids, like in git.
+// a branch name, a remote branch ("origin/main"), or a full or short (4+
+// chars) commit id. Branch names win over short ids, like in git.
+//
+// Any of those can be followed by steps back through history, like git:
+// "~N" goes N first-parents back (HEAD~2), "^" is the first parent and "^2"
+// the second parent of a merge (HEAD^2, main~1^2).
 func (r *Repo) Resolve(rev string) (string, error) {
+	cut := strings.IndexAny(rev, "~^")
+	if cut < 0 {
+		return r.resolveName(rev)
+	}
+	if cut == 0 {
+		return "", fmt.Errorf("unknown revision %q", rev)
+	}
+	id, err := r.resolveName(rev[:cut])
+	if err != nil {
+		return "", err
+	}
+	steps := rev[cut:]
+	for steps != "" {
+		op := steps[0]
+		steps = steps[1:]
+		n, digits := 1, 0
+		for digits < len(steps) && steps[digits] >= '0' && steps[digits] <= '9' {
+			digits++
+		}
+		if digits > 0 {
+			if digits > 6 {
+				return "", fmt.Errorf("unknown revision %q", rev)
+			}
+			n = 0
+			for _, d := range steps[:digits] {
+				n = n*10 + int(d-'0')
+			}
+			steps = steps[digits:]
+		}
+		if steps != "" && steps[0] != '~' && steps[0] != '^' {
+			return "", fmt.Errorf("unknown revision %q", rev)
+		}
+		if op == '~' {
+			for i := 0; i < n; i++ {
+				if id, err = r.parent(id, 1, rev); err != nil {
+					return "", err
+				}
+			}
+		} else if n > 0 { // ^0 is the commit itself
+			if id, err = r.parent(id, n, rev); err != nil {
+				return "", err
+			}
+		}
+	}
+	return id, nil
+}
+
+// parent returns the n-th parent (1 = first) of commit id.
+func (r *Repo) parent(id string, n int, rev string) (string, error) {
+	c, err := r.ReadCommit(id)
+	if err != nil {
+		return "", err
+	}
+	if n > len(c.Parents) {
+		return "", fmt.Errorf("%s: history doesn't go back that far (%s has %d parent(s))", rev, id[:7], len(c.Parents))
+	}
+	return c.Parents[n-1], nil
+}
+
+func (r *Repo) resolveName(rev string) (string, error) {
 	if rev == "" || rev == "HEAD" {
 		_, id, err := r.Refs().Head()
 		if err != nil {

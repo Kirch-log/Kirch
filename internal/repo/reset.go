@@ -204,25 +204,26 @@ func (r *Repo) clearWay(rel string) error {
 	return nil
 }
 
-// RevertError lists files that changed again after the reverted commit, so
-// undoing it would throw those later changes away.
+// RevertError lists files whose later changes clash with undoing the commit
+// (the same lines, or the same nets, were changed again afterwards).
 type RevertError struct {
 	Commit string
-	Files  []string
+	Files  []string // one line per file, with wiring details for netlist.json
 }
 
 func (e *RevertError) Error() string {
-	return fmt.Sprintf("can't revert %s on its own: these files changed again after it:\n\t%s\n"+
-		"(revert the later commits first, or reset)", e.Commit[:7], strings.Join(e.Files, "\n\t"))
+	return fmt.Sprintf("can't revert %s automatically: these files were changed again in the same places:\n\t%s\n"+
+		"(revert the later commits first, or edit the files by hand)", e.Commit[:7], strings.Join(e.Files, "\n\t"))
 }
 
 // ErrDirty means there are uncommitted changes to tracked files.
 var ErrDirty = errors.New("you have uncommitted changes; commit them or reset --hard first")
 
-// Revert makes a new commit that undoes the changes rev made. It works file
-// by file: every file the commit changed must still be as that commit left
-// it, otherwise a *RevertError lists the files and nothing is changed.
-// Line-by-line merging of later edits comes with merge.
+// Revert makes a new commit that undoes the changes rev made, keeping
+// everything committed after it. It is a three-way merge of "the commit's
+// parent" into HEAD, with the commit itself as the base: text is undone line
+// by line, netlist.json net by net. If a later commit changed the same lines
+// or nets again, a *RevertError lists the files and nothing is changed.
 func (r *Repo) Revert(rev string, author objects.Signature) (*CommitResult, error) {
 	id, err := r.Resolve(rev)
 	if err != nil {
@@ -261,75 +262,87 @@ func (r *Repo) Revert(rev string, author objects.Signature) (*CommitResult, erro
 	if err != nil {
 		return nil, err
 	}
-
-	// Paths the commit changed, and whether HEAD still has its version.
-	changed := map[string]bool{}
-	for p, b := range before {
-		if a, ok := after[p]; !ok || a != b {
-			changed[p] = true
-		}
-	}
-	for p := range after {
-		if _, ok := before[p]; !ok {
-			changed[p] = true
-		}
-	}
-	if len(changed) == 0 {
+	if sameFiles(before, after) {
 		return nil, fmt.Errorf("%s changed no files; nothing to revert", id[:7])
 	}
+
+	// Merge "before the commit" into HEAD, with the commit as the base.
+	plan, err := r.planMerge(after, head, before, "parent of "+id[:7])
+	if err != nil {
+		return nil, err
+	}
+	var clashes []string
+	result := map[string]objects.TreeEntry{}
+	for p, f := range plan {
+		switch {
+		case f.conflict != nil:
+			line := p
+			if len(f.conflict.Details) > 0 {
+				line += ": " + strings.Join(f.conflict.Details, "; ")
+			}
+			clashes = append(clashes, line)
+		case f.entry != nil:
+			result[p] = *f.entry
+		}
+	}
+	if len(clashes) > 0 {
+		sort.Strings(clashes)
+		return nil, &RevertError{Commit: id, Files: clashes}
+	}
+	if sameFiles(head, result) {
+		return nil, fmt.Errorf("the changes from %s are already undone; nothing to revert", id[:7])
+	}
+	if err := r.checkInTheWay(head, result); err != nil {
+		return nil, err
+	}
+
 	idx, err := r.LoadIndex()
 	if err != nil {
 		return nil, err
 	}
-	var later, inWay []string
-	for p := range changed {
-		a, inAfter := after[p]
-		h, inHead := head[p]
-		if inAfter != inHead || a != h {
-			later = append(later, p)
-		}
-		if _, tracked := idx.Entries[p]; !tracked && exists(r.abs(p)) {
-			inWay = append(inWay, p)
-		}
-	}
-	if len(later) > 0 {
-		sort.Strings(later)
-		return nil, &RevertError{Commit: id, Files: later}
-	}
-	if len(inWay) > 0 {
-		sort.Strings(inWay)
-		return nil, &CheckoutError{Untracked: inWay}
-	}
-
-	// Put each changed file back to how it was before the commit.
-	paths := make([]string, 0, len(changed))
-	for p := range changed {
+	paths := make([]string, 0, len(plan))
+	for p := range plan {
 		paths = append(paths, p)
 	}
 	sort.Strings(paths)
 	for _, p := range paths {
-		if b, ok := before[p]; ok {
+		e, keep := result[p]
+		h, inHead := head[p]
+		switch {
+		case !keep && inHead:
+			if err := os.Remove(r.abs(p)); err != nil && !errors.Is(err, fs.ErrNotExist) {
+				return nil, err
+			}
+			r.removeEmptyDirs(path.Dir(p))
+			delete(idx.Entries, p)
+		case keep && (!inHead || h != e):
 			if err := r.clearWay(p); err != nil {
 				return nil, err
 			}
-			e, err := r.writeFile(p, b)
+			written, err := r.writeFile(p, e)
 			if err != nil {
 				return nil, err
 			}
-			idx.Entries[p] = e
-			continue
+			idx.Entries[p] = written
 		}
-		if err := os.Remove(r.abs(p)); err != nil && !errors.Is(err, fs.ErrNotExist) {
-			return nil, err
-		}
-		r.removeEmptyDirs(path.Dir(p))
-		delete(idx.Entries, p)
 	}
 	if err := idx.Save(r.IndexFile()); err != nil {
 		return nil, err
 	}
 	msg := fmt.Sprintf("Revert \"%s\"\n\nThis reverts commit %s.", subject(c.Message), id)
 	return r.Commit(msg, author)
+}
+
+func sameFiles(a, b map[string]objects.TreeEntry) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for p, e := range a {
+		if f, ok := b[p]; !ok || f.ID != e.ID || f.Mode != e.Mode {
+			return false
+		}
+	}
+	return true
 }
 
 func subject(s string) string {

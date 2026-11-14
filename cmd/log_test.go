@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -112,5 +113,51 @@ func TestLogOutputMatchesGit(t *testing.T) {
 		if want := gitLog(args...); got != want {
 			t.Errorf("kirch log %v:\n%s\ngit log:\n%s", args, got, want)
 		}
+	}
+}
+
+// Oracle: remote branches (origin/main) are shown like git log shows them.
+func TestLogShowsRemoteBranchesLikeGit(t *testing.T) {
+	git, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("git not installed")
+	}
+	t.Setenv("KIRCH_AUTHOR_NAME", "T")
+	t.Setenv("KIRCH_AUTHOR_EMAIL", "t@example.com")
+	origin := t.TempDir()
+	t.Chdir(origin)
+	if _, err := repo.Init(origin); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile("a.txt", []byte("1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runKirch(t, "add", ".")
+	runKirch(t, "commit", "-m", "one")
+	runKirch(t, "branch", "probe")
+
+	clone := filepath.Join(t.TempDir(), "clone")
+	if _, err := repo.Clone(origin, clone); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(clone)
+	if err := os.WriteFile("a.txt", []byte("2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runKirch(t, "add", ".")
+	runKirch(t, "commit", "-m", "two")
+	runKirch(t, "branch", "zz")
+
+	cmd := exec.Command(git, "--git-dir=.kirch", "log", "--decorate=short", "--no-color", "--oneline")
+	cmd.Env = append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL="+os.DevNull)
+	want, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git log: %v\n%s", err, want)
+	}
+	if got := runKirch(t, "log", "--oneline"); got != string(want) {
+		t.Fatalf("kirch log:\n%s\ngit log:\n%s", got, want)
+	}
+	if !strings.Contains(string(want), "origin/main") {
+		t.Fatalf("test setup: git shows no origin/main:\n%s", want)
 	}
 }

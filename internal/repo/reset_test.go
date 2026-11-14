@@ -143,9 +143,11 @@ func TestRevert(t *testing.T) {
 	}
 	wantStatus(t, r)
 
-	// Files one made were changed again later: refused, nothing touched.
+	// one created a.txt, which was edited later: undoing the creation would
+	// delete those edits, so it's refused and nothing is touched. (gone.txt,
+	// also created by one, was deleted later anyway: no clash there.)
 	var re *RevertError
-	if _, err := r.Revert(one, testAuthor); !errors.As(err, &re) || strings.Join(re.Files, ",") != "a.txt,gone.txt" {
+	if _, err := r.Revert(one, testAuthor); !errors.As(err, &re) || strings.Join(re.Files, ",") != "a.txt" {
 		t.Fatalf("err = %v", err)
 	}
 	if branchID(t, r) != res.ID {
@@ -266,4 +268,49 @@ func TestRevertAndResetMatchGit(t *testing.T) {
 	}
 	wantStatus(t, r)
 	run(r.Dir, "fsck", "--strict", "--no-dangling")
+}
+
+// An older commit can be reverted even though the same files changed
+// later, as long as the later changes are elsewhere (other lines, other nets).
+func TestRevertOlderCommit(t *testing.T) {
+	r, _ := forked(t)
+	put(t, r, "netlist.json", strings.Replace(net3, `"U1.GPIO1"`, `"U1.GPIO11"`, 1))
+	put(t, r, "firmware/main.cpp", "l1\nA\nl3\nl4\nl5\nl6\nl7\nl8\nl9\n")
+	old := commitIn(t, r, "move A, edit line 2")
+	put(t, r, "netlist.json", strings.Replace(strings.Replace(net3, `"U1.GPIO1"`, `"U1.GPIO11"`, 1), `"R5.1"`, `"R5.1","R9.1"`, 1))
+	put(t, r, "firmware/main.cpp", "l1\nA\nl3\nl4\nl5\nl6\nl7\nl8\nZ\n")
+	commitIn(t, r, "add R9 to E, edit line 9")
+
+	if _, err := r.Revert(old, testAuthor); err != nil {
+		t.Fatal(err)
+	}
+	nl := readFile(t, r, "netlist.json")
+	if !strings.Contains(nl, `"U1.GPIO1"`) || strings.Contains(nl, "GPIO11") || !strings.Contains(nl, `"R9.1"`) {
+		t.Fatalf("netlist.json:\n%s", nl)
+	}
+	if got := readFile(t, r, "firmware/main.cpp"); got != "l1\nl2\nl3\nl4\nl5\nl6\nl7\nl8\nZ\n" {
+		t.Fatalf("main.cpp = %q", got)
+	}
+	wantStatus(t, r)
+
+	// Reverting it again: already undone.
+	if _, err := r.Revert(old, testAuthor); err == nil {
+		t.Fatal("second revert of the same commit should say it's already undone")
+	}
+}
+
+// Undoing a net change when a later commit rewired that same net: refused,
+// with the net named.
+func TestRevertClashOnNet(t *testing.T) {
+	r, _ := forked(t)
+	put(t, r, "netlist.json", strings.Replace(net3, `"U1.GPIO1"`, `"U1.GPIO11"`, 1))
+	old := commitIn(t, r, "A to GPIO11")
+	put(t, r, "netlist.json", strings.Replace(net3, `"U1.GPIO1"`, `"U1.GPIO12"`, 1))
+	commitIn(t, r, "A to GPIO12")
+	var re *RevertError
+	_, err := r.Revert(old, testAuthor)
+	if !errors.As(err, &re) || len(re.Files) != 1 || !strings.Contains(re.Files[0], "net A_NET") {
+		t.Fatalf("err = %v", err)
+	}
+	wantStatus(t, r)
 }

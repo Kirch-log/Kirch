@@ -74,7 +74,7 @@ func (r *Repo) Add(paths []string) (*AddResult, error) {
 			return nil, err
 		case info.IsDir():
 			found := map[string]bool{}
-			if err := r.walk(abs, func(fileAbs, fileRel string) error {
+			if err := r.walk(abs, idx, func(fileAbs, fileRel string) error {
 				found[fileRel] = true
 				if seen[fileRel] {
 					return nil
@@ -167,26 +167,41 @@ func (r *Repo) resolve(arg string) (abs, rel string, err error) {
 }
 
 // walk calls fn for every regular file under dir, skipping .kirch and .git.
-func (r *Repo) walk(dir string, fn func(abs, rel string) error) error {
+// Files and folders matched by .kirchignore are skipped unless something in
+// them is tracked in idx (tracked files are never ignored).
+func (r *Repo) walk(dir string, idx *index.Index, fn func(abs, rel string) error) error {
+	ig := r.loadIgnore()
+	hasTracked := func(relDir string) bool {
+		for p := range idx.Entries {
+			if strings.HasPrefix(p, relDir+"/") {
+				return true
+			}
+		}
+		return false
+	}
 	return filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
-		}
-		if d.IsDir() {
-			name := d.Name()
-			if p != dir && (strings.EqualFold(name, DirName) || strings.EqualFold(name, ".git")) {
-				return filepath.SkipDir
-			}
-			if p == dir && (strings.EqualFold(name, DirName) || strings.EqualFold(name, ".git")) {
-				return filepath.SkipDir
-			}
-			return nil
 		}
 		relOS, err := filepath.Rel(r.Root, p)
 		if err != nil {
 			return err
 		}
-		return fn(p, filepath.ToSlash(relOS))
+		rel := filepath.ToSlash(relOS)
+		if d.IsDir() {
+			name := d.Name()
+			if strings.EqualFold(name, DirName) || strings.EqualFold(name, ".git") {
+				return filepath.SkipDir
+			}
+			if rel != "." && ig.matches(rel, true) && !hasTracked(rel) {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if _, tracked := idx.Entries[rel]; !tracked && ig.matches(rel, false) {
+			return nil
+		}
+		return fn(p, rel)
 	})
 }
 

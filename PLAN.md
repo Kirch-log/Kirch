@@ -133,11 +133,11 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - Push refuses when the remote has commits you don't have (pull first); pushing the remote's checked-out branch updates its files only if it has no uncommitted work
   - Objects copied blobs → trees → commits, so an interrupted copy never leaves a commit without its files
   - Tests: two clones push / reject / pull-merge / fast-forward; `git fsck --strict` passes on every repo; `git clone` of a kirch repo gets the same files
-- [ ] 12. Fixes from hands-on testing of v0.1.0 — **🔨 Hridhayesh**
-  - `HEAD~1` / `HEAD^` (and `<branch>~N`) revisions
-  - Revert older commits even when `netlist.json` changed later (three-way, like merge)
-  - `kirch log` shows remote branches (`origin/main`) like git
-  - `.kirchignore` (like `.gitignore`)
+- [x] 12. Fixes from hands-on testing of v0.1.0
+  - `HEAD~1` / `HEAD^` / `main~2^2` revisions — same commits as `git rev-parse`
+  - Revert older commits even when files changed later: three-way like merge (lines for text, nets for `netlist.json`); refuses only when the same lines / nets changed again
+  - `kirch log` shows remote branches (`origin/main`) — same output as `git log`
+  - `.kirchignore` (`*.exe`, `build/`, `/top-only`, `docs/*.pdf`, `!keep`) — same untracked list as git with the same patterns
 
 ### Part 2 — Platform
 
