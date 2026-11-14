@@ -89,6 +89,9 @@ func (rs Repos) List() ([][2]string, error) {
 	return out, nil
 }
 
+// maxTips caps the wants and haves in one fetch (each is a branch tip).
+const maxTips = 10000
+
 // TCPServer serves kirch:// connections.
 type TCPServer struct {
 	Repos Repos
@@ -217,6 +220,9 @@ func (s *TCPServer) fetch(c *proto.Conn, owner, name string) error {
 	var w proto.WantMsg
 	if err := c.Expect(proto.Want, &w); err != nil {
 		return err
+	}
+	if len(w.Wants) > maxTips || len(w.Haves) > maxTips {
+		return proto.Errorf(proto.CodeBadRequest, "too many wants / haves (max %d each)", maxTips)
 	}
 	for _, id := range w.Wants {
 		if !objects.ValidID(id) || !r.Objects.Has(id) {

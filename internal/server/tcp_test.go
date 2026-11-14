@@ -436,3 +436,19 @@ func TestUntrustedCertRefused(t *testing.T) {
 		t.Fatalf("got %v, want certificate error", err)
 	}
 }
+
+func TestFetchTooManyHaves(t *testing.T) {
+	ts := startTCP(t)
+	pushOne(t, ts)
+	c := raw(t, ts)
+	hello(t, c, proto.HelloMsg{Version: 1, Repo: "o/r", Op: proto.OpFetch})
+	var refsMsg proto.RefsMsg
+	c.Expect(proto.Refs, &refsMsg)
+	haves := make([]string, maxTips+1)
+	for i := range haves {
+		haves[i] = strings.Repeat("a", 40)
+	}
+	c.Send(proto.Want, proto.WantMsg{Haves: haves})
+	c.Flush()
+	expectErr(t, c, proto.CodeBadRequest)
+}

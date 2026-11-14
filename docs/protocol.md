@@ -97,6 +97,7 @@ client                              server
 - Repo name: `owner/name`, each part `[a-z0-9][a-z0-9._-]{0,62}` (lowercase). No `..`, no slashes inside a part.
 - Idle timeout: 60 s without a frame → connection closed.
 - Max frame 64 MiB.
+- At most 10 000 `wants` and 10 000 `haves` in one `WANT`.
 
 ## TLS
 
