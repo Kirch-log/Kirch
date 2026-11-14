@@ -1,5 +1,5 @@
 // Package protocol is what kirch and a Kirch server send each other for
-// clone / fetch / pull / push over HTTP (docs/protocol.md).
+// clone / fetch / pull / push over HTTP (docs/protocol-http.md).
 //
 // Three endpoints, under a repository URL like https://host/ana/servo-board:
 //
