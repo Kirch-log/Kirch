@@ -72,7 +72,8 @@ Work happens on branches; nothing is merged into `main` until the end.
 - [x] Data formats — [`docs/formats.md`](docs/formats.md)
 - [x] Part 2 stack + hosting decided
 - [x] Repo setup: `go.mod`, `main.go` + `cmd/` + `internal/`, `.gitignore`, CI (Go build/vet/fmt/test, firmware tests + compile)
-- [ ] CD: tag `v*` → GitHub Release with `kirch` for Windows / Mac / Linux + probe firmware `.bin` — **🔨 Hridhayesh**
+- [x] CD (`.github/workflows/release.yml`): push a tag like `v0.1.0` → tests → GitHub Release with `kirch` for Windows / Mac / Linux (x64 + ARM), probe firmware `.bin` and SHA256 checksums; `kirch --version` shows the tag
+  - Editing the workflow runs a dry run (builds everything, publishes nothing)
 
 ### Part 1 — `kirch` CLI
 
