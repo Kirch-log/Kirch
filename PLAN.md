@@ -7,7 +7,7 @@ Personal project. Core pieces built **from scratch**.
 **Status: plan locked 2026-11-12.** Changes from here = new decision entry.
 
 **How we use this file:** one checklist for both of us. Whoever does an item ticks it.
-`[x]` done · `[~]` built, not tested yet · `[ ]` to do.
+`[x]` done · `[~]` built, not tested yet · `[ ]` to do · **🔨 Name** = that person is working on it now (add your name when you start, so we don't both do it).
 Work happens on branches; nothing is merged into `main` until the end.
 
 ---
@@ -149,7 +149,7 @@ Per step: engine code → test → Cobra command → try it → compare with rea
 Tables: `users`, `repos`, `commits` (hash, repo, author, message, time), `refs` (branch → commit).
 Starts after Part 1 step 11.
 
-- [ ] Server push / pull over HTTP
+- [ ] Server push / pull over HTTP — **🔨 Hridhayesh** (next up)
 - [ ] Postgres tables + migrations, commit summaries written on push
 - [ ] API for the website: repos, commits, one commit, diff
 - [ ] Website: repo list → repo page → commit list → commit detail (wiring diff + code diff)
@@ -165,7 +165,7 @@ Firmware in [`firmware/`](firmware/README.md).
 - [~] Found on the network as `kirch-probe.local` (mDNS)
 - [~] Streams readings over WebSocket; numbered so dropped ones are re-sent
 - [x] Laptop tools: `probe_listen.py`, `fake_probe.py` (test without hardware)
-- [ ] Tested on the real ESP32 (checklist in `firmware/README.md`)
+- [ ] Tested on the real ESP32 (checklist in `firmware/README.md`) — **🔨 Hridhayesh** (flashed + boots + Bluetooth setup seen; Wi-Fi test next)
 - [ ] Pairing with a shared key → `kirch probe pair`
 - [ ] Probe firmware updates over Wi-Fi (OTA) — USB only for the very first flash
 - [ ] Fallback: probe creates its own Wi-Fi when the local one blocks devices
