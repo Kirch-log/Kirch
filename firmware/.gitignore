@@ -1,0 +1,6 @@
+.pio/
+firmware/test_host
+firmware/test_host.exe
+__pycache__/
+*.pyc
+capture.json
