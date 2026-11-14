@@ -11,21 +11,21 @@ import (
 	"strings"
 
 	"github.com/Kirch-log/kirch/internal/objects"
+	"github.com/Kirch-log/kirch/internal/proto"
 	"github.com/Kirch-log/kirch/internal/refs"
 )
 
-// Remotes are other repositories on this computer (a folder, e.g. a shared
-// or synced drive), saved by name in .kirch/remotes.json:
+// Remotes are other repositories: a folder on this computer (e.g. a shared
+// or synced drive) or a Kirch server (kirch://host/owner/name, see
+// docs/protocol.md), saved by name in .kirch/remotes.json:
 //
-//	{"origin": "D:/shared/servo-board"}
-//
-// Push / pull over the network comes with the platform (Part 2).
+//	{"origin": "D:/shared/servo-board", "server": "kirch://example.com/evin/servo-board"}
 
 // ErrNonFastForward means the remote branch has commits we don't have.
 var ErrNonFastForward = errors.New("the remote branch has commits you don't have; kirch pull first, then push")
 
 // ErrNoRemote means the remote name isn't set up.
-var ErrNoRemote = errors.New("no such remote (add one with kirch remote add <name> <folder>)")
+var ErrNoRemote = errors.New("no such remote (add one with kirch remote add <name> <folder or kirch:// URL>)")
 
 func (r *Repo) remotesFile() string { return filepath.Join(r.Dir, "remotes.json") }
 
@@ -45,20 +45,30 @@ func (r *Repo) Remotes() (map[string]string, error) {
 	return m, nil
 }
 
-// AddRemote saves a remote. The folder must hold a kirch repository.
-func (r *Repo) AddRemote(name, folder string) error {
+// AddRemote saves a remote: a folder holding a kirch repository, or a
+// kirch:// URL (not contacted until the first fetch or push).
+func (r *Repo) AddRemote(name, location string) error {
 	if err := refs.CheckBranchName(name); err != nil || strings.Contains(name, "/") {
 		return fmt.Errorf("%q is not a valid remote name", name)
 	}
-	abs, err := filepath.Abs(folder)
-	if err != nil {
-		return err
-	}
-	if !isRepo(abs) {
-		return fmt.Errorf("%s is not a kirch repository", abs)
-	}
-	if abs == r.Root {
-		return errors.New("a repository can't be its own remote")
+	var stored string
+	if proto.IsURL(location) {
+		if _, err := proto.ParseURL(location); err != nil {
+			return err
+		}
+		stored = strings.TrimSuffix(location, "/")
+	} else {
+		abs, err := filepath.Abs(location)
+		if err != nil {
+			return err
+		}
+		if !isRepo(abs) {
+			return fmt.Errorf("%s is not a kirch repository", abs)
+		}
+		if abs == r.Root {
+			return errors.New("a repository can't be its own remote")
+		}
+		stored = filepath.ToSlash(abs)
 	}
 	m, err := r.Remotes()
 	if err != nil {
@@ -67,7 +77,7 @@ func (r *Repo) AddRemote(name, folder string) error {
 	if _, ok := m[name]; ok {
 		return fmt.Errorf("remote %q already exists", name)
 	}
-	m[name] = filepath.ToSlash(abs)
+	m[name] = stored
 	data, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
@@ -75,15 +85,28 @@ func (r *Repo) AddRemote(name, folder string) error {
 	return os.WriteFile(r.remotesFile(), append(data, '\n'), 0o644)
 }
 
-// OpenRemote opens the repository a remote name points to.
-func (r *Repo) OpenRemote(name string) (*Repo, string, error) {
+// RemoteLocation returns the folder or kirch:// URL a remote name points to.
+func (r *Repo) RemoteLocation(name string) (string, error) {
 	m, err := r.Remotes()
+	if err != nil {
+		return "", err
+	}
+	loc, ok := m[name]
+	if !ok {
+		return "", fmt.Errorf("%q: %w", name, ErrNoRemote)
+	}
+	return loc, nil
+}
+
+// OpenRemote opens the repository folder a remote name points to. Remotes
+// that are kirch:// URLs can't be opened as folders.
+func (r *Repo) OpenRemote(name string) (*Repo, string, error) {
+	folder, err := r.RemoteLocation(name)
 	if err != nil {
 		return nil, "", err
 	}
-	folder, ok := m[name]
-	if !ok {
-		return nil, "", fmt.Errorf("%q: %w", name, ErrNoRemote)
+	if proto.IsURL(folder) {
+		return nil, "", fmt.Errorf("remote %q is a server (%s), not a folder", name, folder)
 	}
 	path := filepath.FromSlash(folder)
 	if !isRepo(path) {
@@ -155,30 +178,57 @@ type RefUpdate struct {
 // tips as remote-tracking branches (refs/remotes/<remote>/<branch>, shown as
 // "origin/main"). Local branches and files are not touched.
 func (r *Repo) Fetch(remote string) ([]RefUpdate, error) {
-	rem, _, err := r.OpenRemote(remote)
+	ups, _, err := r.fetch(remote)
+	return ups, err
+}
+
+// fetch is Fetch, also returning the branch the remote has checked out.
+func (r *Repo) fetch(remote string) ([]RefUpdate, string, error) {
+	end, err := r.openEnd(remote, proto.OpFetch)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	theirs, err := rem.Refs().Branches()
-	if err != nil {
-		return nil, err
-	}
+	defer end.close()
+	theirs := end.branches()
 	known, err := r.Refs().RemoteBranches(remote)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	var tips []string
+	ours, err := r.Refs().Branches()
+	if err != nil {
+		return nil, "", err
+	}
+	var wants, haves []string
 	for _, id := range theirs {
-		tips = append(tips, id)
+		if !r.Objects.Has(id) {
+			wants = append(wants, id)
+		}
 	}
-	if _, err := copyObjects(rem.Objects, r.Objects, tips); err != nil {
-		return nil, err
+	for _, m := range []map[string]string{ours, known} {
+		for _, id := range m {
+			if r.Objects.Has(id) {
+				haves = append(haves, id)
+			}
+		}
+	}
+	sort.Strings(wants)
+	if err := end.fetch(r.Objects, wants, haves); err != nil {
+		return nil, "", err
+	}
+	complete := map[string]bool{}
+	for _, id := range haves {
+		complete[id] = true
+	}
+	for _, id := range wants {
+		if err := r.Objects.CheckComplete(id, complete); err != nil {
+			return nil, "", fmt.Errorf("fetch from %q is incomplete, nothing updated: %w", remote, err)
+		}
 	}
 	var updates []RefUpdate
 	for b, id := range theirs {
 		if known[b] != id {
 			if err := r.Refs().SetRemoteBranch(remote, b, id); err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			updates = append(updates, RefUpdate{Branch: b, Old: known[b], New: id})
 		}
@@ -186,13 +236,13 @@ func (r *Repo) Fetch(remote string) ([]RefUpdate, error) {
 	for b, id := range known {
 		if _, ok := theirs[b]; !ok { // deleted on the remote
 			if err := r.Refs().SetRemoteBranch(remote, b, ""); err != nil {
-				return nil, err
+				return nil, "", err
 			}
 			updates = append(updates, RefUpdate{Branch: b, Old: id})
 		}
 	}
 	sort.Slice(updates, func(i, j int) bool { return updates[i].Branch < updates[j].Branch })
-	return updates, nil
+	return updates, end.head(), nil
 }
 
 // Push sends a local branch and its history to the remote and moves the
@@ -217,14 +267,12 @@ func (r *Repo) Push(remote, branch string) (*RefUpdate, error) {
 	if tip == "" {
 		return nil, fmt.Errorf("branch %q has no commits to push", branch)
 	}
-	rem, _, err := r.OpenRemote(remote)
+	end, err := r.openEnd(remote, proto.OpPush)
 	if err != nil {
 		return nil, err
 	}
-	old, err := rem.Refs().Branch(branch)
-	if err != nil {
-		return nil, err
-	}
+	defer end.close()
+	old := end.branches()[branch]
 	up := &RefUpdate{Branch: branch, Old: old, New: tip}
 	if old == tip {
 		return up, r.Refs().SetRemoteBranch(remote, branch, tip)
@@ -241,20 +289,7 @@ func (r *Repo) Push(remote, branch string) (*RefUpdate, error) {
 			return nil, ErrNonFastForward
 		}
 	}
-	if _, err := copyObjects(r.Objects, rem.Objects, []string{tip}); err != nil {
-		return nil, err
-	}
-
-	remoteCurrent, _, err := rem.Refs().Head()
-	if err != nil {
-		return nil, err
-	}
-	if remoteCurrent == branch {
-		if err := rem.updateCheckedOut(tip); err != nil {
-			return nil, fmt.Errorf("remote %q has %s checked out: %w", remote, branch, err)
-		}
-	}
-	if err := rem.Refs().UpdateBranch(branch, tip, old); err != nil {
+	if err := end.push(r.Objects, branch, old, tip); err != nil {
 		return nil, err
 	}
 	return up, r.Refs().SetRemoteBranch(remote, branch, tip)
@@ -312,7 +347,7 @@ func (r *Repo) Pull(remote, branch string, author objects.Signature) ([]RefUpdat
 	if id == "" {
 		return updates, nil, fmt.Errorf("remote %q has no branch %q", remote, branch)
 	}
-	_, folder, err := r.OpenRemote(remote)
+	folder, err := r.RemoteLocation(remote)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -321,35 +356,56 @@ func (r *Repo) Pull(remote, branch string, author objects.Signature) ([]RefUpdat
 	return updates, res, err
 }
 
-// Clone copies the repository in src into a new folder dest (which must not
-// exist or be empty), sets src up as remote "origin", and checks out the
-// branch src has checked out.
-func Clone(src, dest string) (*Repo, error) {
-	srcAbs, err := filepath.Abs(src)
-	if err != nil {
-		return nil, err
+// Clone copies the repository at src (a folder or a kirch:// URL) into a
+// new folder dest (which must not exist or be empty), sets src up as remote
+// "origin", and checks out the branch src has checked out. If the clone
+// fails, the new repository is removed again.
+func Clone(src, dest string) (r *Repo, err error) {
+	location := src
+	if !proto.IsURL(src) {
+		abs, err := filepath.Abs(src)
+		if err != nil {
+			return nil, err
+		}
+		if !isRepo(abs) {
+			return nil, fmt.Errorf("%s is not a kirch repository", abs)
+		}
+		location = abs
 	}
-	if !isRepo(srcAbs) {
-		return nil, fmt.Errorf("%s is not a kirch repository", srcAbs)
-	}
+	_, statErr := os.Stat(dest)
+	existed := statErr == nil
 	if entries, err := os.ReadDir(dest); err == nil && len(entries) > 0 {
 		return nil, fmt.Errorf("%s already exists and is not empty", dest)
 	}
-	r, err := Init(dest)
+	r, err = Init(dest)
 	if err != nil {
 		return nil, err
 	}
-	if err := r.AddRemote("origin", srcAbs); err != nil {
+	created := r
+	defer func() {
+		if err != nil {
+			if existed {
+				os.RemoveAll(created.Dir)
+			} else {
+				os.RemoveAll(created.Root)
+			}
+		}
+	}()
+	if err := r.AddRemote("origin", location); err != nil {
 		return nil, err
 	}
-	if _, err := r.Fetch("origin"); err != nil {
-		return nil, err
-	}
-	branch, id, err := open(srcAbs).Refs().Head()
+	_, branch, err := r.fetch("origin")
 	if err != nil {
 		return nil, err
+	}
+	if branch == "" {
+		branch = DefaultBranch
 	}
 	if err := r.Refs().SetHead(branch); err != nil {
+		return nil, err
+	}
+	id, err := r.Refs().RemoteBranch("origin", branch)
+	if err != nil {
 		return nil, err
 	}
 	if id == "" {

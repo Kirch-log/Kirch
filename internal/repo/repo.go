@@ -94,3 +94,16 @@ func isRepo(root string) bool {
 	info, err := os.Stat(filepath.Join(root, DirName, "HEAD"))
 	return err == nil && !info.IsDir()
 }
+
+// Open opens the repository whose working folder is root (no searching
+// upward, unlike Find).
+func Open(root string) (*Repo, error) {
+	abs, err := filepath.Abs(root)
+	if err != nil {
+		return nil, err
+	}
+	if !isRepo(abs) {
+		return nil, fmt.Errorf("%w: %s", ErrNotRepo, abs)
+	}
+	return open(abs), nil
+}

@@ -275,3 +275,32 @@ func TestRemotesMatchGit(t *testing.T) {
 		t.Fatalf("git clone main.cpp = %q", data)
 	}
 }
+
+func TestAddRemoteURL(t *testing.T) {
+	r, err := Init(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, bad := range []string{"kirch://host", "kirch://host/a/../b", "kirch://host/A/b"} {
+		if err := r.AddRemote("x", bad); err == nil {
+			t.Errorf("%s: want error", bad)
+		}
+	}
+	if err := r.AddRemote("origin", "kirch://example.com:7000/evin/board/"); err != nil {
+		t.Fatal(err)
+	}
+	loc, err := r.RemoteLocation("origin")
+	if err != nil || loc != "kirch://example.com:7000/evin/board" {
+		t.Fatalf("got %q, %v", loc, err)
+	}
+	if _, _, err := r.OpenRemote("origin"); err == nil {
+		t.Fatal("OpenRemote on a server URL should fail")
+	}
+	// Unreachable server: a clear error, no panic.
+	if err := r.AddRemote("dead", "kirch://127.0.0.1:1/o/r"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := r.Fetch("dead"); err == nil || !strings.Contains(err.Error(), "can't reach") {
+		t.Fatalf("got %v", err)
+	}
+}

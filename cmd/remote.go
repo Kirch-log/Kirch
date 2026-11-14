@@ -13,8 +13,8 @@ import (
 
 func init() {
 	remoteCmd := &cobra.Command{
-		Use:   "remote [add <name> <folder>]",
-		Short: "List remotes, or add one (another kirch repository folder)",
+		Use:   "remote [add <name> <folder or kirch://host/owner/repo>]",
+		Short: "List remotes, or add one (a repository folder or a Kirch server)",
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(c *cobra.Command, args []string) error {
 			r, err := currentRepo()
@@ -39,12 +39,12 @@ func init() {
 			case args[0] == "add" && len(args) == 3:
 				return r.AddRemote(args[1], args[2])
 			}
-			return fmt.Errorf("usage: kirch remote [add <name> <folder>]")
+			return fmt.Errorf("usage: kirch remote [add <name> <folder or kirch://host/owner/repo>]")
 		},
 	}
 
 	cloneCmd := &cobra.Command{
-		Use:   "clone <folder> [new folder]",
+		Use:   "clone <folder or kirch://host/owner/repo> [new folder]",
 		Short: "Copy a repository into a new folder, with the original as remote \"origin\"",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(c *cobra.Command, args []string) error {
@@ -96,11 +96,11 @@ func init() {
 				fmt.Fprintln(out, "Everything up-to-date")
 				return nil
 			}
-			_, folder, err := r.OpenRemote(remote)
+			loc, err := r.RemoteLocation(remote)
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(out, "To %s\n", folder)
+			fmt.Fprintf(out, "To %s\n", loc)
 			if up.Old == "" {
 				fmt.Fprintf(out, " * [new branch]      %s -> %s\n", up.Branch, up.Branch)
 			} else {
@@ -165,8 +165,8 @@ func printFetch(w io.Writer, r *repo.Repo, remote string, ups []repo.RefUpdate) 
 	if len(ups) == 0 {
 		return
 	}
-	if _, folder, err := r.OpenRemote(remote); err == nil {
-		fmt.Fprintf(w, "From %s\n", folder)
+	if loc, err := r.RemoteLocation(remote); err == nil {
+		fmt.Fprintf(w, "From %s\n", loc)
 	}
 	for _, u := range ups {
 		ref := remote + "/" + u.Branch
