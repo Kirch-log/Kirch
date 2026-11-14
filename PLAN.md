@@ -114,7 +114,10 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - `kirch diff` (files vs index), `--staged`, `<commit>`, `<a> <b>`, optional paths; `--text` = plain patch for every file
   - `netlist.json` shown as wiring: nets added / removed / renamed, pin moved between nets, pin swapped (`SERVO1.SIG: U1.GPIO9 → U1.GPIO10`), pin connected / disconnected
   - Tests: `kirch diff --text` == `git diff` byte for byte (all four modes + paths); `git apply` of our patches rebuilds the new files; line diff always shortest
-- [ ] 9. `reset` / `revert`
+- [x] 9. `reset` / `revert` (`Repo.Reset`, `ResetPaths`, `Revert`)
+  - `kirch reset <path>` unstages; `kirch reset [--soft|--hard] [<commit>]` moves the branch (soft = branch only, mixed = + index, hard = + files; untracked files kept)
+  - `kirch revert <commit>` = new commit undoing it, file by file; refuses (changes nothing) if a file it touched changed again later, there are uncommitted changes, or an untracked file is in the way. Line-level merging comes with step 10
+  - Tests: revert commit id == `git revert` byte for byte (same author + time); after `reset --hard` index + files == `git ls-tree -r`, `git fsck --strict` passes
 - [ ] 10. `merge` (netlist: per pin)
 - [ ] 11. `push` / `pull` / `clone` to local folder 🎯 *Part 1 done*
 
