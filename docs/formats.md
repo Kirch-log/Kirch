@@ -80,8 +80,26 @@ A **net** is a group of pins that are all connected together.
 `SERVO1.SIG: GPIO4 → GPIO9` is reported as
 "servo signal moved from GPIO4 to GPIO9", not as JSON line changes.
 
-**Merge** (step 10, v1): nets merge per pin. If both branches moved the
-**same pin** to different nets → conflict, stop. Everything else merges.
+**Merge** (step 10): nets merge **net by net** (changed 2026-11-14, was per pin).
+
+- A net changed on one branch only → that branch's pins.
+- A net both branches changed the same way → that change.
+- A net both branches changed differently → **conflict**. Example: both swap
+  `U1.GPIO9` for a different pin. A per-pin merge would wire GPIO10 *and*
+  GPIO11 to the servo — a short nobody made.
+- A pin each branch moved to a different net → **conflict** (one net only per pin).
+
+On a conflict, `netlist.json` keeps our version of the net and lists both
+versions under a `"conflicts"` key:
+
+```json
+"conflicts": {
+  "nets": { "SIG": { "ours": ["SERVO1.SIG", "U1.GPIO11"], "theirs": ["SERVO1.SIG", "U1.GPIO10"] } },
+  "pins": { "U1.GPIO1": { "ours": "B_NET", "theirs": "C_NET" } }
+}
+```
+
+`kirch add` refuses the file until `"conflicts"` is fixed and deleted.
 
 ---
 
