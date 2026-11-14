@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"path/filepath"
 	"sort"
 	"strings"
 
@@ -13,8 +12,8 @@ import (
 
 func init() {
 	remoteCmd := &cobra.Command{
-		Use:   "remote [add <name> <folder>]",
-		Short: "List remotes, or add one (another kirch repository folder)",
+		Use:   "remote [add <name> <folder or URL>]",
+		Short: "List remotes, or add one (a kirch repository folder or server URL)",
 		Args:  cobra.ArbitraryArgs,
 		RunE: func(c *cobra.Command, args []string) error {
 			r, err := currentRepo()
@@ -39,16 +38,16 @@ func init() {
 			case args[0] == "add" && len(args) == 3:
 				return r.AddRemote(args[1], args[2])
 			}
-			return fmt.Errorf("usage: kirch remote [add <name> <folder>]")
+			return fmt.Errorf("usage: kirch remote [add <name> <folder or URL>]")
 		},
 	}
 
 	cloneCmd := &cobra.Command{
-		Use:   "clone <folder> [new folder]",
+		Use:   "clone <folder or URL> [new folder]",
 		Short: "Copy a repository into a new folder, with the original as remote \"origin\"",
 		Args:  cobra.RangeArgs(1, 2),
 		RunE: func(c *cobra.Command, args []string) error {
-			dest := filepath.Base(filepath.Clean(args[0]))
+			dest := repo.CloneName(args[0])
 			if len(args) == 2 {
 				dest = args[1]
 			}
@@ -96,7 +95,7 @@ func init() {
 				fmt.Fprintln(out, "Everything up-to-date")
 				return nil
 			}
-			_, folder, err := r.OpenRemote(remote)
+			folder, err := r.RemoteLocation(remote)
 			if err != nil {
 				return err
 			}
@@ -165,7 +164,7 @@ func printFetch(w io.Writer, r *repo.Repo, remote string, ups []repo.RefUpdate) 
 	if len(ups) == 0 {
 		return
 	}
-	if _, folder, err := r.OpenRemote(remote); err == nil {
+	if folder, err := r.RemoteLocation(remote); err == nil {
 		fmt.Fprintf(w, "From %s\n", folder)
 	}
 	for _, u := range ups {
