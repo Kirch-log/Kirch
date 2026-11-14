@@ -10,9 +10,14 @@ import (
 	"github.com/spf13/cobra"
 )
 
+// version is set by release builds:
+// go build -ldflags "-X github.com/Kirch-log/kirch/cmd.version=v0.1.0"
+var version = "dev"
+
 var rootCmd = &cobra.Command{
 	Use:           "kirch",
 	Short:         "Version control for hardware circuits",
+	Version:       version,
 	SilenceUsage:  true,
 	SilenceErrors: true, // Execute prints them
 }

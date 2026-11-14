@@ -1,0 +1,126 @@
+name: Release
+
+# Pushing a tag like v0.1.0 builds kirch for every platform plus the probe
+# firmware, and publishes them as a GitHub Release.
+# Editing this file on a branch runs a dry run: everything is built and kept
+# as workflow artifacts, but nothing is published.
+on:
+  push:
+    tags: ["v*"]
+    branches: ["**"]
+    paths: [".github/workflows/release.yml"]
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: go vet ./...
+      - run: go test ./... -race -count=1
+      - working-directory: firmware
+        run: g++ -std=c++17 -Wall -Wextra -Werror -Iinclude test/test_host.cpp -o test_host && ./test_host
+
+  cli:
+    name: kirch ${{ matrix.goos }}/${{ matrix.goarch }}
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - { goos: windows, goarch: amd64, ext: .exe }
+          - { goos: windows, goarch: arm64, ext: .exe }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          version="${GITHUB_REF_NAME}"
+          [[ "$GITHUB_REF_TYPE" == tag ]] || version="dev-${GITHUB_SHA::7}"
+          name="kirch-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
+          mkdir -p dist
+          go build -trimpath -ldflags "-s -w -X github.com/Kirch-log/kirch/cmd.version=${version}" -o "dist/${name}" .
+      - name: Check the Linux build runs
+        if: matrix.goos == 'linux' && matrix.goarch == 'amd64'
+        run: ./dist/kirch-linux-amd64 --version
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kirch-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+
+  firmware:
+    name: Probe firmware
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ hashFiles('firmware/platformio.ini') }}
+      - run: pip install platformio
+      - name: Build
+        working-directory: firmware
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then
+            # Firmware reports the release version (v0.2.0 → 0.2.0).
+            python3 - <<'EOF'
+          import os, pathlib, re
+          p = pathlib.Path("platformio.ini")
+          v = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          p.write_text(re.sub(r'(KIRCH_FIRMWARE_VERSION=\\")[^\\]*', lambda m: m.group(1) + v, p.read_text()))
+          EOF
+          fi
+          grep KIRCH_FIRMWARE_VERSION platformio.ini
+          pio run
+          mkdir -p ../dist
+          b=.pio/build/esp32s3
+          cp "$b/firmware.bin" ../dist/kirch-probe-esp32s3.bin
+          cp "$b/bootloader.bin" ../dist/kirch-probe-esp32s3-bootloader.bin
+          cp "$b/partitions.bin" ../dist/kirch-probe-esp32s3-partitions.bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kirch-probe-firmware
+          path: dist/*
+
+  publish:
+    name: Publish release
+    if: github.ref_type == 'tag'
+    needs: [cli, firmware]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        working-directory: dist
+        run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "Kirch $GITHUB_REF_NAME" \
+            --generate-notes \
+            $([[ "$GITHUB_REF_NAME" == *-* ]] && echo --prerelease)
