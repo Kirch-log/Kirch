@@ -53,12 +53,12 @@ Three tracks. **A** comes first (small) — it decides what the API must return.
 - [ ] What's in v1 vs later — written in `docs/platform.md`
 - [ ] API shape agreed by both of us (endpoints + JSON each returns)
 
-**B. Backend — the main server**
+**B. Backend — the main server** — **🔨 Evin** (except push/pull server)
 - [ ] Server that accepts `kirch push` / `pull` over the internet — **🔨 Hridhayesh** (next up)
-- [ ] Database (Postgres) that records repos and commits
-- [ ] API the website reads from (repos, commits, diffs)
-- [ ] Run everything locally with one command (Docker)
-- [ ] Tests against a real Postgres
+- [ ] Database (Postgres) that records repos and commits — **🔨 Evin**
+- [ ] API the website reads from (repos, commits, diffs) — **🔨 Evin**
+- [ ] Run everything locally with one command (Docker) — **🔨 Evin**
+- [ ] Tests against a real Postgres — **🔨 Evin**
 
 **C. Frontend — the website**
 - [ ] Pages from track A
