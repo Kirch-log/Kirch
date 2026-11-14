@@ -56,6 +56,7 @@ Three tracks. **A** comes first (small) — it decides what the API must return.
 **B. Backend — the main server** — **🔨 Evin** (whole track, incl. push/pull)
 - [ ] Protocol spec for push/pull — `docs/protocol.md` (custom TCP + TLS, `kirch://`, port 9418)
 - [ ] TCP push/pull server: HELLO, REFS, WANT/HAVE, PACK, UPDATE, OK/ERR
+  - Reusable: branch `push-pull-http` already has a working HTTP version (object bundle format, "what to send" walk, `Remote` interface, race-safe push, tests) — take what helps
 - [ ] `kirch push` / `pull` / `clone` speak `kirch://` (engine sees a `Remote` interface)
 - [ ] Database (Postgres) that records repos and commits
 - [ ] Indexer: `IndexRepo()` copies commits + branches into Postgres after each push
