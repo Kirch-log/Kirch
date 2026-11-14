@@ -124,7 +124,13 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - Conflicts: text gets `<<<<<<<` markers; `netlist.json` gets a `"conflicts"` list that `kirch add` refuses until fixed; `kirch status` shows `UU`; `kirch commit` (no `-m` needed) finishes the merge
   - Refuses with uncommitted changes; checkout / revert / a second merge refused while a merge is unfinished; any reset ends it
   - Tests: clean merge commit id == `git merge` byte for byte; text merge == `git merge-file` (same result, conflicts in the same cases); git sees our `MERGE_HEAD`; `git fsck --strict` passes
-- [ ] 11. `push` / `pull` / `clone` to local folder 🎯 *Part 1 done*
+- [x] 11. `push` / `pull` / `clone` to local folder 🎯 *Part 1 done* (`Repo.Clone`, `Fetch`, `Push`, `Pull`, `AddRemote`)
+  - Remotes = other repository folders (shared / synced drive), saved in `.kirch/remotes.json`; network push / pull comes with Part 2
+  - `kirch clone <folder> [dest]`, `kirch remote [add <name> <folder>]`, `kirch fetch`, `kirch push [remote] [branch]`, `kirch pull [remote] [branch]`
+  - Remote branches kept as `origin/main` (`refs/remotes/`, git's layout); fetch drops branches deleted on the remote
+  - Push refuses when the remote has commits you don't have (pull first); pushing the remote's checked-out branch updates its files only if it has no uncommitted work
+  - Objects copied blobs → trees → commits, so an interrupted copy never leaves a commit without its files
+  - Tests: two clones push / reject / pull-merge / fast-forward; `git fsck --strict` passes on every repo; `git clone` of a kirch repo gets the same files
 
 ### Part 2 — Platform
 

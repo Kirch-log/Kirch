@@ -3,6 +3,7 @@ package repo
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/Kirch-log/kirch/internal/objects"
 )
@@ -26,6 +27,11 @@ func (r *Repo) Resolve(rev string) (string, error) {
 	}
 	if id, err := r.Refs().Branch(rev); err == nil && id != "" {
 		return id, nil
+	}
+	if remote, branch, ok := strings.Cut(rev, "/"); ok { // e.g. origin/main
+		if id, err := r.Refs().RemoteBranch(remote, branch); err == nil && id != "" {
+			return id, nil
+		}
 	}
 	id, err := r.Objects.Expand(rev)
 	if errors.Is(err, objects.ErrAmbiguous) {

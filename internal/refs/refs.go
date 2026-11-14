@@ -238,3 +238,89 @@ func (s *Store) DeleteBranch(name, oldID string) error {
 	}
 	return nil
 }
+
+// Remote-tracking branches: the last known tip of a branch in another
+// repository, as git stores them.
+//
+//	.kirch/refs/remotes/origin/main   "<commit id>\n"
+
+func (s *Store) remotePath(remote, branch string) string {
+	return filepath.Join(s.Dir, "refs", "remotes", remote, filepath.FromSlash(branch))
+}
+
+// RemoteBranch returns the last known tip of remote's branch ("" if unknown).
+func (s *Store) RemoteBranch(remote, branch string) (string, error) {
+	if err := CheckBranchName(remote + "/" + branch); err != nil {
+		return "", err
+	}
+	data, err := os.ReadFile(s.remotePath(remote, branch))
+	if errors.Is(err, os.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	id := strings.TrimSpace(string(data))
+	if !objects.ValidID(id) {
+		return "", fmt.Errorf("remote branch %s/%s is damaged: %q", remote, branch, id)
+	}
+	return id, nil
+}
+
+// SetRemoteBranch records remote's branch tip; id "" deletes the record.
+func (s *Store) SetRemoteBranch(remote, branch, id string) error {
+	if err := CheckBranchName(remote + "/" + branch); err != nil {
+		return err
+	}
+	path := s.remotePath(remote, branch)
+	if id == "" {
+		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		return nil
+	}
+	if !objects.ValidID(id) {
+		return fmt.Errorf("bad commit id %q", id)
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	tmp := path + ".lock"
+	if err := os.WriteFile(tmp, []byte(id+"\n"), 0o644); err != nil {
+		return err
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		os.Remove(tmp)
+		return err
+	}
+	return nil
+}
+
+// RemoteBranches returns every recorded branch of remote and its tip.
+func (s *Store) RemoteBranches(remote string) (map[string]string, error) {
+	root := filepath.Join(s.Dir, "refs", "remotes", remote)
+	out := map[string]string{}
+	err := filepath.WalkDir(root, func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			if errors.Is(err, os.ErrNotExist) && p == root {
+				return nil
+			}
+			return err
+		}
+		if d.IsDir() || strings.HasSuffix(p, ".lock") {
+			return nil
+		}
+		rel, err := filepath.Rel(root, p)
+		if err != nil {
+			return err
+		}
+		name := filepath.ToSlash(rel)
+		id, err := s.RemoteBranch(remote, name)
+		if err != nil {
+			return err
+		}
+		out[name] = id
+		return nil
+	})
+	return out, err
+}

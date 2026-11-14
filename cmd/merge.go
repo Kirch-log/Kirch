@@ -57,7 +57,7 @@ kirch add them and kirch commit.`,
 				fmt.Fprintln(out, "Automatic merge failed; fix conflicts, kirch add the files, then kirch commit.")
 				return errSilentFail
 			default:
-				fmt.Fprintf(out, "Merge made: [%s %s] %s\n", res.Commit.Branch, res.Commit.ID[:7], repo.MergeMessage(args[0], res.Commit.Branch, isBranch(r, args[0])))
+				printMergeMade(out, r, res)
 			}
 			return nil
 		},
@@ -66,9 +66,12 @@ kirch add them and kirch commit.`,
 	rootCmd.AddCommand(mergeCmd)
 }
 
-func isBranch(r *repo.Repo, name string) bool {
-	id, err := r.Refs().Branch(name)
-	return err == nil && id != ""
+func printMergeMade(w io.Writer, r *repo.Repo, res *repo.MergeResult) {
+	c, err := r.ReadCommit(res.Commit.ID)
+	if err != nil {
+		return
+	}
+	fmt.Fprintf(w, "Merge made: [%s %s] %s\n", res.Commit.Branch, res.Commit.ID[:7], firstLine(c.Message))
 }
 
 func printConflicts(w io.Writer, conflicts []repo.Conflict) {

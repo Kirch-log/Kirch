@@ -206,13 +206,22 @@ func (r *Repo) walkAncestors(start string, fn func(string, objects.CommitData) b
 	return nil
 }
 
-// MergeMessage is git's default merge commit message.
-func MergeMessage(rev, current string, isBranch bool) string {
+// mergeMessage is git's default merge commit message, e.g.
+// "Merge branch 'side'" or "Merge remote-tracking branch 'origin/main' into dev".
+func (r *Repo) mergeMessage(rev, current string) string {
 	what := fmt.Sprintf("commit '%s'", rev)
-	if isBranch {
+	if _, ok := r.branchExists(rev); ok {
 		what = fmt.Sprintf("branch '%s'", rev)
+	} else if remote, branch, ok := strings.Cut(rev, "/"); ok {
+		if id, err := r.Refs().RemoteBranch(remote, branch); err == nil && id != "" {
+			what = fmt.Sprintf("remote-tracking branch '%s'", rev)
+		}
 	}
-	msg := "Merge " + what
+	return withInto("Merge "+what, current)
+}
+
+// withInto adds " into <branch>" unless merging into main, like git.
+func withInto(msg, current string) string {
 	if current != "main" && current != "master" {
 		msg += " into " + current
 	}
@@ -231,6 +240,11 @@ func MergeMessage(rev, current string, isBranch bool) string {
 //
 // Uncommitted changes to tracked files must be committed first.
 func (r *Repo) Merge(rev string, author objects.Signature) (*MergeResult, error) {
+	return r.merge(rev, "", author)
+}
+
+// merge is Merge with a chosen commit message ("" = git's default).
+func (r *Repo) merge(rev, message string, author objects.Signature) (*MergeResult, error) {
 	if st, err := r.Merging(); err != nil {
 		return nil, err
 	} else if st != nil {
@@ -298,9 +312,7 @@ func (r *Repo) Merge(rev string, author objects.Signature) (*MergeResult, error)
 			return nil, err
 		}
 	}
-	_, isBranch := r.branchExists(rev)
-	label := rev
-	plan, err := r.planMerge(baseFiles, ourFiles, theirFiles, label)
+	plan, err := r.planMerge(baseFiles, ourFiles, theirFiles, rev)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +378,10 @@ func (r *Repo) Merge(rev string, author objects.Signature) (*MergeResult, error)
 		return nil, err
 	}
 
-	st := &MergeState{Head: theirs, Message: MergeMessage(rev, status.Branch, isBranch) + "\n"}
+	if message == "" {
+		message = r.mergeMessage(rev, status.Branch)
+	}
+	st := &MergeState{Head: theirs, Message: message + "\n"}
 	for _, c := range res.Conflicts {
 		st.Unresolved = append(st.Unresolved, c.Path)
 	}
