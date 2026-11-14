@@ -46,6 +46,7 @@ Work happens on branches; nothing is merged into `main` until the end.
 | 2026-11-13 | **Part 2 stack + hosting** chosen (see Part 2). Local Docker first, AWS when deployed. |
 | 2026-11-13 | **One shared checklist**, no per-person split. Branches only; merge into `main` at the end. |
 | 2026-11-13 | **Kirch-only files get a `.json` name** (`index.json`, `config.json`) so real git can read a `.kirch` folder (`git --git-dir=.kirch log`, `fsck --strict` pass). |
+| 2026-11-14 | **Netlist merge is net by net, not per pin.** Per pin silently joined both branches' replacement pins into one net (GPIO10 + GPIO11 shorted). Now: both branches changing the same net differently = conflict. Details in `docs/formats.md`. |
 
 ---
 
@@ -118,7 +119,11 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - `kirch reset <path>` unstages; `kirch reset [--soft|--hard] [<commit>]` moves the branch (soft = branch only, mixed = + index, hard = + files; untracked files kept)
   - `kirch revert <commit>` = new commit undoing it, file by file; refuses (changes nothing) if a file it touched changed again later, there are uncommitted changes, or an untracked file is in the way. Line-level merging comes with step 10
   - Tests: revert commit id == `git revert` byte for byte (same author + time); after `reset --hard` index + files == `git ls-tree -r`, `git fsck --strict` passes
-- [ ] 10. `merge` (netlist: per pin)
+- [x] 10. `merge` (`internal/merge`: own three-way line merge + net-by-net netlist merge; `Repo.Merge`, `MergeBase`, `MergeAbort`)
+  - `kirch merge <branch>`: up to date / fast-forward / merge commit with two parents; `kirch merge --abort`
+  - Conflicts: text gets `<<<<<<<` markers; `netlist.json` gets a `"conflicts"` list that `kirch add` refuses until fixed; `kirch status` shows `UU`; `kirch commit` (no `-m` needed) finishes the merge
+  - Refuses with uncommitted changes; checkout / revert / a second merge refused while a merge is unfinished; any reset ends it
+  - Tests: clean merge commit id == `git merge` byte for byte; text merge == `git merge-file` (same result, conflicts in the same cases); git sees our `MERGE_HEAD`; `git fsck --strict` passes
 - [ ] 11. `push` / `pull` / `clone` to local folder 🎯 *Part 1 done*
 
 ### Part 2 — Platform

@@ -49,13 +49,18 @@ func Format(name string, data []byte) ([]byte, error) {
 	if err := check(path.Base(name), obj); err != nil {
 		return nil, err
 	}
-	sortStringLists(obj)
+	return Marshal(obj)
+}
 
+// Marshal writes v in canonical layout without checking it. Values decoded
+// with UseNumber keep their exact numbers.
+func Marshal(v any) ([]byte, error) {
+	sortStringLists(v)
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf) // map keys come out sorted
 	enc.SetEscapeHTML(false)
 	enc.SetIndent("", "  ")
-	if err := enc.Encode(obj); err != nil {
+	if err := enc.Encode(v); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil // Encode already ends with "\n"
@@ -101,6 +106,9 @@ func check(name string, obj map[string]any) error {
 
 // Each pin may be in at most one net (docs/formats.md, netlist.json).
 func checkNetlist(obj map[string]any) error {
+	if _, ok := obj["conflicts"]; ok {
+		return errors.New(`still has merge conflicts: fix the nets and pins listed under "conflicts", then delete "conflicts"`)
+	}
 	nets, ok := obj["nets"]
 	if !ok {
 		return nil

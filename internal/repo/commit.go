@@ -26,7 +26,23 @@ type CommitResult struct {
 
 // Commit snapshots the staged files as a new commit on the current branch.
 // Author is also used as committer.
+//
+// During a merge (see Merge) the commit gets the merged commit as a second
+// parent, an empty message means the default merge message, and every
+// conflicted file must have been kirch add-ed.
 func (r *Repo) Commit(message string, author objects.Signature) (*CommitResult, error) {
+	merging, err := r.Merging()
+	if err != nil {
+		return nil, err
+	}
+	if merging != nil {
+		if len(merging.Unresolved) > 0 {
+			return nil, fmt.Errorf("fix these conflicts first, then kirch add them:\n\t%s", strings.Join(merging.Unresolved, "\n\t"))
+		}
+		if strings.TrimSpace(message) == "" {
+			message = merging.Message
+		}
+	}
 	message = strings.TrimSpace(message)
 	if message == "" {
 		return nil, errors.New("commit message is empty")
@@ -53,10 +69,13 @@ func (r *Repo) Commit(message string, author objects.Signature) (*CommitResult, 
 		if err != nil {
 			return nil, err
 		}
-		if prev.Tree == tree {
+		if prev.Tree == tree && merging == nil {
 			return nil, ErrNothingToCommit
 		}
 		parents = []string{parent}
+	}
+	if merging != nil {
+		parents = append(parents, merging.Head)
 	}
 
 	data, err := objects.EncodeCommit(objects.CommitData{
@@ -75,6 +94,11 @@ func (r *Repo) Commit(message string, author objects.Signature) (*CommitResult, 
 	}
 	if err := r.Refs().UpdateBranch(branch, id, parent); err != nil {
 		return nil, err
+	}
+	if merging != nil {
+		if err := r.clearMergeState(); err != nil {
+			return nil, err
+		}
 	}
 	return &CommitResult{ID: id, Branch: branch, Parent: parent, Tree: tree}, nil
 }

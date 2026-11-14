@@ -24,10 +24,14 @@ func init() {
 			if err != nil {
 				return err
 			}
+			m, err := r.Merging()
+			if err != nil {
+				return err
+			}
 			if short {
-				printShortStatus(c.OutOrStdout(), st)
+				printShortStatus(c.OutOrStdout(), st, m)
 			} else {
-				printLongStatus(c.OutOrStdout(), st)
+				printLongStatus(c.OutOrStdout(), st, m)
 			}
 			return nil
 		},
@@ -38,9 +42,20 @@ func init() {
 }
 
 // printShortStatus writes git's porcelain v1 format: two status letters
-// (staged, unstaged) and the path; untracked files as "?? path".
-func printShortStatus(w io.Writer, st *repo.Status) {
+// (staged, unstaged) and the path; untracked files as "?? path". During a
+// merge, files with unresolved conflicts are "UU path".
+func printShortStatus(w io.Writer, st *repo.Status, m *repo.MergeState) {
+	unresolved := map[string]bool{}
+	if m != nil {
+		for _, p := range m.Unresolved {
+			unresolved[p] = true
+		}
+	}
 	for _, f := range st.Files {
+		if unresolved[f.Path] {
+			fmt.Fprintf(w, "UU %s\n", quotePath(f.Path))
+			continue
+		}
 		fmt.Fprintf(w, "%c%c %s\n", f.Staged, f.Unstaged, quotePath(f.Path))
 	}
 	for _, p := range st.Untracked {
@@ -48,10 +63,21 @@ func printShortStatus(w io.Writer, st *repo.Status) {
 	}
 }
 
-func printLongStatus(w io.Writer, st *repo.Status) {
+func printLongStatus(w io.Writer, st *repo.Status, m *repo.MergeState) {
 	fmt.Fprintf(w, "On branch %s\n", st.Branch)
 	if st.Head == "" {
 		fmt.Fprintf(w, "\nNo commits yet\n")
+	}
+	if m != nil {
+		if len(m.Unresolved) > 0 {
+			fmt.Fprintf(w, "You have unmerged paths.\n  (fix conflicts and run \"kirch add\", then \"kirch commit\")\n  (use \"kirch merge --abort\" to give up the merge)\n")
+			fmt.Fprintf(w, "\nUnmerged paths:\n")
+			for _, p := range m.Unresolved {
+				fmt.Fprintf(w, "\t%-11s %s\n", "conflict:", p)
+			}
+		} else {
+			fmt.Fprintf(w, "All conflicts fixed but you are still merging.\n  (use \"kirch commit\" to finish the merge)\n")
+		}
 	}
 	names := map[byte]string{repo.Added: "new file:", repo.Modified: "modified:", repo.Deleted: "deleted:"}
 	section := func(title string, pick func(repo.FileStatus) byte) bool {

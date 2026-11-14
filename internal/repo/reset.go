@@ -56,7 +56,11 @@ func (r *Repo) Reset(rev string, mode ResetMode) (old string, err error) {
 			return "", err
 		}
 	}
-	return old, r.Refs().UpdateBranch(branch, id, old)
+	if err := r.Refs().UpdateBranch(branch, id, old); err != nil {
+		return "", err
+	}
+	// Like git, any reset ends an unfinished merge.
+	return old, r.clearMergeState()
 }
 
 // ResetPaths unstages paths: their index entries are set back to rev
@@ -230,6 +234,11 @@ func (r *Repo) Revert(rev string, author objects.Signature) (*CommitResult, erro
 	}
 	if len(c.Parents) > 1 {
 		return nil, fmt.Errorf("%s is a merge commit; reverting merges isn't supported yet", id[:7])
+	}
+	if m, err := r.Merging(); err != nil {
+		return nil, err
+	} else if m != nil {
+		return nil, ErrMerging
 	}
 	st, err := r.Status()
 	if err != nil {

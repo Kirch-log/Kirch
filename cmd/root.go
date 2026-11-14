@@ -3,19 +3,31 @@
 package cmd
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/Kirch-log/kirch/internal/repo"
 	"github.com/spf13/cobra"
 )
 
 var rootCmd = &cobra.Command{
-	Use:          "kirch",
-	Short:        "Version control for hardware circuits",
-	SilenceUsage: true,
+	Use:           "kirch",
+	Short:         "Version control for hardware circuits",
+	SilenceUsage:  true,
+	SilenceErrors: true, // Execute prints them
 }
+
+// errSilentFail makes kirch exit with status 1 after a command already
+// explained what went wrong (e.g. a merge with conflicts).
+var errSilentFail = errors.New("failed")
 
 // Execute runs the CLI.
 func Execute() error {
-	return rootCmd.Execute()
+	err := rootCmd.Execute()
+	if err != nil && !errors.Is(err, errSilentFail) {
+		fmt.Fprintln(rootCmd.ErrOrStderr(), "Error:", err)
+	}
+	return err
 }
 
 // currentRepo opens the repository containing the current folder.

@@ -54,6 +54,7 @@ func (r *Repo) Add(paths []string) (*AddResult, error) {
 
 	// Pass 1: find files, read and check them. No writes yet.
 	var files []pending
+	var added []string // repo-relative paths given, for the merge conflict list
 	seen := map[string]bool{}
 	removed := map[string]bool{}
 	for _, arg := range paths {
@@ -61,6 +62,7 @@ func (r *Repo) Add(paths []string) (*AddResult, error) {
 		if err != nil {
 			return nil, err
 		}
+		added = append(added, rel)
 		info, err := os.Lstat(abs)
 		switch {
 		case errors.Is(err, fs.ErrNotExist):
@@ -136,6 +138,9 @@ func (r *Repo) Add(paths []string) (*AddResult, error) {
 	sort.Strings(res.Removed)
 
 	if err := idx.Save(r.IndexFile()); err != nil {
+		return nil, err
+	}
+	if err := r.markResolved(added); err != nil {
 		return nil, err
 	}
 	return res, nil

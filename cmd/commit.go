@@ -22,6 +22,14 @@ func init() {
 			if err != nil {
 				return err
 			}
+			if message == "" {
+				// Finishing a merge may use its default message.
+				if m, err := r.Merging(); err != nil {
+					return err
+				} else if m == nil {
+					return errors.New(`give a message: kirch commit -m "what changed"`)
+				}
+			}
 			author, err := authorFor(r)
 			if err != nil {
 				return err
@@ -30,16 +38,19 @@ func init() {
 			if err != nil {
 				return err
 			}
+			cm, err := r.ReadCommit(res.ID)
+			if err != nil {
+				return err
+			}
 			root := ""
 			if res.Parent == "" {
 				root = " (root-commit)"
 			}
-			fmt.Fprintf(c.OutOrStdout(), "[%s%s %s] %s\n", res.Branch, root, res.ID[:7], firstLine(message))
+			fmt.Fprintf(c.OutOrStdout(), "[%s%s %s] %s\n", res.Branch, root, res.ID[:7], firstLine(cm.Message))
 			return nil
 		},
 	}
-	commitCmd.Flags().StringVarP(&message, "message", "m", "", "commit message")
-	_ = commitCmd.MarkFlagRequired("message")
+	commitCmd.Flags().StringVarP(&message, "message", "m", "", "commit message (optional when finishing a merge)")
 
 	var global bool
 	configCmd := &cobra.Command{

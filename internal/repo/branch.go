@@ -137,6 +137,11 @@ func (r *Repo) Checkout(branch string) error {
 	if branch == current {
 		return nil
 	}
+	if m, err := r.Merging(); err != nil {
+		return err
+	} else if m != nil {
+		return ErrMerging
+	}
 
 	oldFiles := map[string]objects.TreeEntry{}
 	if from != "" {
