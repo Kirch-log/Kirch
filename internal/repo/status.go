@@ -2,8 +2,6 @@ package repo
 
 import (
 	"errors"
-	"io/fs"
-	"os"
 	"path"
 	"path/filepath"
 	"sort"
@@ -73,10 +71,7 @@ func (r *Repo) Status() (*Status, error) {
 	}
 	// Files changed after the index was saved may share its mtime; those are
 	// always re-hashed (git calls them "racily clean").
-	var indexTime int64
-	if info, err := os.Stat(r.IndexFile()); err == nil {
-		indexTime = info.ModTime().UnixNano()
-	}
+	indexTime := r.indexTime()
 
 	byPath := map[string]*FileStatus{}
 	get := func(p string) *FileStatus {
@@ -118,24 +113,13 @@ func (r *Repo) Status() (*Status, error) {
 
 // worktreeChange compares a staged file with the file on disk.
 func (r *Repo) worktreeChange(rel string, e index.Entry, indexTime int64) (byte, error) {
-	abs := r.abs(rel)
-	info, err := os.Lstat(abs)
-	if errors.Is(err, fs.ErrNotExist) || (err == nil && !info.Mode().IsRegular()) {
-		return Deleted, nil
-	}
-	if err != nil {
+	v, err := r.worktreeFile(rel, e, indexTime)
+	switch {
+	case err != nil:
 		return 0, err
-	}
-	mtime := info.ModTime().UnixNano()
-	if info.Size() == e.Size && mtime == e.MtimeNs && mtime < indexTime {
-		return Unchanged, nil
-	}
-	p, err := prepare(abs, rel)
-	if err != nil {
-		// An invalid circuit file can't be the staged one.
-		return Modified, nil
-	}
-	if objects.Hash(objects.Blob, p.content) != e.Hash || p.mode != e.Mode {
+	case v == nil:
+		return Deleted, nil
+	case v.id != e.Hash || v.mode != e.Mode:
 		return Modified, nil
 	}
 	return Unchanged, nil

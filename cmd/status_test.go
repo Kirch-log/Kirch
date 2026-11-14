@@ -79,16 +79,27 @@ func TestStatusMatchesGit(t *testing.T) {
 	write("firmware/extra.cpp", "e\n")
 	write("firmware/lib/a/b.h", "h\n")
 
-	// Give git the same last commit and the same index.
+	run := mirrorInGit(t, git, r)
+	got := runKirch(t, "status", "--porcelain")
+	if want := run("status", "--porcelain"); got != want {
+		t.Fatalf("kirch status --porcelain:\n%s\ngit status --porcelain:\n%s", got, want)
+	}
+}
+
+// mirrorInGit makes a .git next to .kirch with the same last commit and
+// index, so git commands see what kirch sees. It returns a git runner.
+func mirrorInGit(t *testing.T, git string, r *repo.Repo) func(args ...string) string {
+	t.Helper()
 	globalCfg := filepath.Join(t.TempDir(), "gitconfig")
 	if err := os.WriteFile(globalCfg, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
 	env := append(os.Environ(), "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL="+globalCfg,
-		"GIT_ALTERNATE_OBJECT_DIRECTORIES="+filepath.Join(root, ".kirch", "objects"))
+		"GIT_ALTERNATE_OBJECT_DIRECTORIES="+filepath.Join(r.Root, ".kirch", "objects"))
 	run := func(args ...string) string {
 		t.Helper()
 		cmd := exec.Command(git, append([]string{"-c", "core.autocrlf=false"}, args...)...)
+		cmd.Dir = r.Root
 		cmd.Env = env
 		out, err := cmd.CombinedOutput()
 		if err != nil {
@@ -97,7 +108,7 @@ func TestStatusMatchesGit(t *testing.T) {
 		return string(out)
 	}
 	run("init", "-q")
-	if err := os.WriteFile(filepath.Join(root, ".git", "info", "exclude"), []byte(".kirch/\n"), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(r.Root, ".git", "info", "exclude"), []byte(".kirch/\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	_, head, err := r.Refs().Head()
@@ -113,9 +124,5 @@ func TestStatusMatchesGit(t *testing.T) {
 		e := idx.Entries[p]
 		run("update-index", "--add", "--cacheinfo", e.Mode+","+e.Hash+","+p)
 	}
-
-	got := runKirch(t, "status", "--porcelain")
-	if want := run("status", "--porcelain"); got != want {
-		t.Fatalf("kirch status --porcelain:\n%s\ngit status --porcelain:\n%s", got, want)
-	}
+	return run
 }

@@ -110,7 +110,10 @@ Per step: engine code → test → Cobra command → try it → compare with rea
   - Checkout keeps uncommitted changes to files that are the same on both branches; refuses (changes nothing) if a changed file differs or an untracked file is in the way
   - Checking out a bare commit id (detached HEAD) not supported — make a branch from it instead
   - Tests: `kirch branch` == `git branch`; after checkout index + files == `git ls-tree -r`, `git symbolic-ref HEAD` agrees, `git fsck` passes
-- [ ] 8. `diff` + **wiring diff** for netlist 🎯
+- [x] 8. `diff` + **wiring diff** for netlist 🎯 (`internal/diff`: own Myers line diff, git patch format, `Wiring()`; `Repo.DiffWorktree/DiffStaged/DiffCommits`)
+  - `kirch diff` (files vs index), `--staged`, `<commit>`, `<a> <b>`, optional paths; `--text` = plain patch for every file
+  - `netlist.json` shown as wiring: nets added / removed / renamed, pin moved between nets, pin swapped (`SERVO1.SIG: U1.GPIO9 → U1.GPIO10`), pin connected / disconnected
+  - Tests: `kirch diff --text` == `git diff` byte for byte (all four modes + paths); `git apply` of our patches rebuilds the new files; line diff always shortest
 - [ ] 9. `reset` / `revert`
 - [ ] 10. `merge` (netlist: per pin)
 - [ ] 11. `push` / `pull` / `clone` to local folder 🎯 *Part 1 done*
