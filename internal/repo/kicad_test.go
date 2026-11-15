@@ -48,8 +48,14 @@ func TestKiCadAutoReimport(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Schematic != "hw/ecc83-pp.kicad_sch" || len(res.Written) != 2 || res.Parts != 15 {
+	if res.Schematic != "hw/ecc83-pp.kicad_sch" || len(res.Written) != 3 || res.Parts != 15 {
 		t.Fatalf("import = %+v", res)
+	}
+	sch := readFile(t, r, "schematic.json")
+	for _, want := range []string{`"format": "kirch.schematic/1"`, `"source": "kicad:hw/ecc83-pp.kicad_sch"`, `"ref": "R1"`, `"wires": [`} {
+		if !strings.Contains(sch, want) {
+			t.Fatalf("schematic.json has no %s", want)
+		}
 	}
 	if r.KiCadSchematic() != "hw/ecc83-pp.kicad_sch" {
 		t.Fatalf("netlist.json doesn't point back at the schematic:\n%s", readFile(t, r, "netlist.json"))

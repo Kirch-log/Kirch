@@ -91,7 +91,11 @@ func printKiCad(out io.Writer, res *repo.KiCadResult, from string) {
 	for _, f := range res.Written {
 		written[f] = true
 	}
-	for _, f := range []string{"netlist.json", "parts.json"} {
+	names := []string{"netlist.json", "parts.json"}
+	if res.Files > 2 {
+		names = append(names, "schematic.json")
+	}
+	for _, f := range names {
 		if written[f] {
 			fmt.Fprintf(out, "wrote     %s\n", f)
 		} else {

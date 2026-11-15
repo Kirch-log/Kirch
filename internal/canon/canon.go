@@ -18,10 +18,11 @@ import (
 
 // Files that kirch add rewrites. Anything else (firmware, photos) is stored as is.
 var circuitFiles = map[string]bool{
-	"parts.json":   true,
-	"netlist.json": true,
-	"layout.json":  true,
-	"capture.json": true,
+	"parts.json":     true,
+	"netlist.json":   true,
+	"layout.json":    true,
+	"capture.json":   true,
+	"schematic.json": true,
 }
 
 // Applies reports whether the file at slash path p is a circuit file.

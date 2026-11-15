@@ -30,7 +30,8 @@ import (
 // KiCadResult says what an import did.
 type KiCadResult struct {
 	Schematic string   // repo-relative path of the .kicad_sch
-	Written   []string // files that changed: "netlist.json", "parts.json"
+	Written   []string // files that changed: "netlist.json", "parts.json", "schematic.json"
+	Files     int      // files produced (written or already up to date)
 	Parts     int
 	Nets      int // nets with at least two pins
 }
@@ -62,8 +63,33 @@ func (r *Repo) ImportKiCad(file string) (*KiCadResult, error) {
 		res.Schematic = filepath.ToSlash(rel)
 		n.Source = res.Schematic // repo-relative, so kirch add can find it again
 	}
-	if err := r.writeKiCad(n, res); err != nil {
+	files, err := kicadFiles(n)
+	if err != nil {
 		return nil, err
+	}
+	// From a schematic we also know where everything is drawn.
+	if isSchematic {
+		sch, err := kicad.ReadSchematic(abs)
+		if err != nil {
+			return nil, err
+		}
+		if res.Schematic != "" {
+			sch.Source = res.Schematic
+		}
+		data, err := sch.File()
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, kicadFile{"schematic.json", data})
+	}
+	if err := r.writeKiCad(files, res); err != nil {
+		return nil, err
+	}
+	res.Parts = len(n.Parts)
+	for _, net := range n.Nets {
+		if len(net.Pins) > 1 {
+			res.Nets++
+		}
 	}
 	if res.Schematic != "" {
 		fp, err := r.kicadFingerprint(res.Schematic)
@@ -77,15 +103,21 @@ func (r *Repo) ImportKiCad(file string) (*KiCadResult, error) {
 	return res, nil
 }
 
-func (r *Repo) writeKiCad(n *kicad.Netlist, res *KiCadResult) error {
+type kicadFile struct {
+	name string
+	data []byte
+}
+
+func kicadFiles(n *kicad.Netlist) ([]kicadFile, error) {
 	netlist, parts, err := n.Files()
 	if err != nil {
-		return err
+		return nil, err
 	}
-	for _, f := range []struct {
-		name string
-		data []byte
-	}{{"netlist.json", netlist}, {"parts.json", parts}} {
+	return []kicadFile{{"netlist.json", netlist}, {"parts.json", parts}}, nil
+}
+
+func (r *Repo) writeKiCad(files []kicadFile, res *KiCadResult) error {
+	for _, f := range files {
 		path := filepath.Join(r.Root, f.name)
 		if old, err := os.ReadFile(path); err == nil && bytes.Equal(old, f.data) {
 			continue
@@ -95,12 +127,7 @@ func (r *Repo) writeKiCad(n *kicad.Netlist, res *KiCadResult) error {
 		}
 		res.Written = append(res.Written, f.name)
 	}
-	res.Parts = len(n.Parts)
-	for _, net := range n.Nets {
-		if len(net.Pins) > 1 {
-			res.Nets++
-		}
-	}
+	res.Files = len(files)
 	return nil
 }
 
