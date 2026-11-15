@@ -32,6 +32,9 @@ func init() {
 				printShortStatus(c.OutOrStdout(), st, m)
 			} else {
 				printLongStatus(c.OutOrStdout(), st, m)
+				if sch, changed, err := r.KiCadChanged(); err == nil && changed {
+					fmt.Fprintf(c.OutOrStdout(), "\nKiCad design %s changed since the last import (kirch add re-imports it)\n", sch)
+				}
 			}
 			return nil
 		},

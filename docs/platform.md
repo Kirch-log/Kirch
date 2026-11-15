@@ -22,7 +22,7 @@ GitHub shows files and text. Kirch shows wires, parts and real measurements.
 
 - People design in **KiCad** (free, the most used free circuit / PCB tool).
 - `kirch import kicad board.kicad_sch` turns the design into Kirch's files (`netlist.json`, `parts.json`) — it runs KiCad's own `kicad-cli` to export the netlist.
-- Later `kirch add` does it automatically when the KiCad file changed, so you just keep working in KiCad.
+- After that, `kirch add` re-imports by itself whenever the KiCad design changed, so you just keep working in KiCad.
 - Commit both: the KiCad files (the design) and Kirch's files (what diffs, history and the website read).
 - Pins are named by **number** (`U1.9`) because names repeat (several `GND` pins); the readable name (`GPIO9`) is kept in `parts.json` and shown next to it.
 - Next importers: KiCad schematic positions (so the website draws your real schematic), then Wokwi (students, ESP32), then the KiCad board for 3D (Part 5).

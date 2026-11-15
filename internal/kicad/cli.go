@@ -18,6 +18,9 @@ var ErrNoKiCad = errors.New("kicad-cli not found: install KiCad 7 or newer, or s
 // the usual install folders (newest KiCad version first).
 func FindCLI() (string, error) {
 	if p := os.Getenv("KIRCH_KICAD_CLI"); p != "" {
+		if _, err := os.Stat(p); err != nil {
+			return "", ErrNoKiCad
+		}
 		return p, nil
 	}
 	if p, err := exec.LookPath("kicad-cli"); err == nil {

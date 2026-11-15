@@ -3,10 +3,12 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/Kirch-log/kirch/internal/kicad"
+	"github.com/Kirch-log/kirch/internal/repo"
 	"github.com/spf13/cobra"
 )
 
@@ -31,6 +33,20 @@ Netlist → KiCad) and import the .net file.
 Run it again after changing the design, then kirch diff shows the wiring changes.`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(c *cobra.Command, args []string) error {
+			out := c.OutOrStdout()
+			// Inside a repository: write at its top and remember the design,
+			// so kirch add keeps it up to date from now on.
+			if r, err := currentRepo(); err == nil && outDir == "" {
+				res, err := r.ImportKiCad(args[0])
+				if err != nil {
+					return err
+				}
+				printKiCad(out, res, filepath.Base(args[0]))
+				if res.Schematic != "" {
+					fmt.Fprintf(out, "kirch add will re-import %s whenever it changes\n", res.Schematic)
+				}
+				return nil
+			}
 			n, err := kicad.Load(args[0])
 			if err != nil {
 				return err
@@ -41,13 +57,8 @@ Run it again after changing the design, then kirch diff shows the wiring changes
 			}
 			dir := outDir
 			if dir == "" {
-				// Default: the top of the repository, else this folder.
 				dir = "."
-				if r, err := currentRepo(); err == nil {
-					dir = r.Root
-				}
 			}
-			out := c.OutOrStdout()
 			for name, data := range map[string][]byte{"netlist.json": netlist, "parts.json": parts} {
 				path := filepath.Join(dir, name)
 				old, _ := os.ReadFile(path)
@@ -73,4 +84,19 @@ Run it again after changing the design, then kirch diff shows the wiring changes
 	kicadCmd.Flags().StringVar(&outDir, "out", "", "folder to write the files to (default: top of the repository)")
 	importCmd.AddCommand(kicadCmd)
 	rootCmd.AddCommand(importCmd)
+}
+
+func printKiCad(out io.Writer, res *repo.KiCadResult, from string) {
+	written := map[string]bool{}
+	for _, f := range res.Written {
+		written[f] = true
+	}
+	for _, f := range []string{"netlist.json", "parts.json"} {
+		if written[f] {
+			fmt.Fprintf(out, "wrote     %s\n", f)
+		} else {
+			fmt.Fprintf(out, "unchanged %s\n", f)
+		}
+	}
+	fmt.Fprintf(out, "%d parts, %d nets from %s\n", res.Parts, res.Nets, from)
 }
