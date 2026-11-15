@@ -56,7 +56,7 @@ Three tracks. **A** comes first (small) — it decides what the API must return.
 **D. Getting circuits in — KiCad first**
 - [x] `kirch import kicad` — KiCad design → `netlist.json` + `parts.json` (tested on KiCad's own demo projects)
 - [x] `kirch add` re-imports automatically when the KiCad design changed (`kirch status` says when it did)
-- [ ] KiCad schematic positions → the website draws your real schematic — **🔨 Hridhayesh**
+- [x] KiCad schematic positions → `schematic.json`, so the website can draw your real schematic (checked against KiCad's own drawing)
 - [ ] Engine helpers for the website: circuit summary, parts diff, ahead/behind, "can merge?" check
 - [ ] Wokwi import (students, ESP32)
 
