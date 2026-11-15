@@ -53,8 +53,18 @@ change formats later without breaking old commits.
 | `type` | yes | Generic kind: `mcu`, `resistor`, `capacitor`, `led`, `sensor`, `servo`, `power`, `connector`, … |
 | `model` | no | Exact part, e.g. `ESP32-S3-DevKitC-1`, `HC-SR04` — also picks the 3D model |
 | `value` | no | `1k`, `100nF`, `5V` |
-| `pins` | no | Pin names. Optional for 2-pin passives (`1`, `2` assumed) |
+| `pins` | no | Pin names, or pin numbers for KiCad imports. Optional for 2-pin passives (`1`, `2` assumed) |
+| `pin_names` | no | Pin number → readable name, e.g. `{"9": "GPIO9"}` (KiCad imports) |
+| `symbol` | no | KiCad library symbol, e.g. `Device:R` (KiCad imports) |
+| `footprint` | no | KiCad footprint, e.g. `Resistor_SMD:R_0603_1608Metric` (KiCad imports) |
+| `description` | no | Symbol description from the library |
 | `notes` | no | Free text |
+
+Top level may also have `"title"` (the schematic title).
+
+**From KiCad** (`kirch import kicad`): pins are named by **number** (`U1.9`), because pin
+names repeat (several `GND` pins on one chip). The readable names go in `pin_names`.
+`type` is guessed from the reference (`R1` → resistor, `U1` → ic, ESP32 / ATmega / RP2040… → mcu).
 
 ---
 
@@ -75,6 +85,9 @@ A **net** is a group of pins that are all connected together.
 - Net names are free text; `GND`, `5V`, `3V3` are conventional.
 - Each pin appears in **at most one** net (checked by `kirch add`).
 - Pins not in any net are unconnected.
+- Optional `"source"` says where it came from, e.g. `"kicad:servo-board.kicad_sch"`.
+  KiCad imports leave out nets with a single pin (unconnected pins) and keep KiCad's net
+  names (`/SERVO/SIG`, `Net-(R1-Pad1)`).
 
 **How the wiring diff reads it** (step 8): compare each pin's net in old vs new.
 `SERVO1.SIG: GPIO4 → GPIO9` is reported as

@@ -54,7 +54,7 @@ Three tracks. **A** comes first (small) — it decides what the API must return.
 - [ ] API shape agreed by both of us (endpoints + JSON each returns)
 
 **D. Getting circuits in — KiCad first**
-- [ ] `kirch import kicad` — KiCad design → `netlist.json` + `parts.json` — **🔨 Hridhayesh**
+- [x] `kirch import kicad` — KiCad design → `netlist.json` + `parts.json` (tested on KiCad's own demo projects)
 - [ ] `kirch add` re-imports automatically when the KiCad design changed
 - [ ] KiCad schematic positions → the website draws your real schematic
 - [ ] Engine helpers for the website: circuit summary, parts diff, ahead/behind, "can merge?" check
