@@ -31,6 +31,20 @@ static constexpr size_t ANALOG_SAMPLES = 32;       // per window
 static constexpr size_t MAX_EDGES = 512;           // per probe per window
 static constexpr size_t RESEND_BUFFER_FRAMES = 32; // last N frames kept for re-send
 
+// Two OLED screens (SSD1306 128x64), each on its own I2C bus (same wiring as
+// the hackathon board). Both use address 0x3C.
+static constexpr uint8_t OLED_A_SDA = 17, OLED_A_SCL = 18;
+static constexpr uint8_t OLED_B_SDA = 4, OLED_B_SCL = 5;
+static constexpr uint8_t OLED_ADDRESS = 0x3C;
+
+// Serial tap: one wire from the user's board's TX line (plus GND) to this pin.
+// Receive only. First test: the FPGA accelerator's serial line at 2 Mbaud.
+// Change TAP_BAUD to match their board (115200 is the Arduino default).
+static constexpr uint8_t TAP_RX_PIN = 7;
+static constexpr uint32_t TAP_BAUD = 2000000;
+static constexpr size_t TAP_RX_BUFFER = 16384;   // UART receive buffer
+static constexpr size_t TAP_WINDOW_BYTES = 2048; // bytes forwarded per window
+
 static constexpr const char *MDNS_HOSTNAME = "kirch-probe"; // kirch-probe.local
 static constexpr uint16_t WS_PORT = 81;
 

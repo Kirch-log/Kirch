@@ -12,6 +12,10 @@
 //                    {"type":"capture","seq":N, ...} every window
 //                    {"type":"gap","from":A,"oldest":B} if asked for frames no longer held
 //   client -> probe  {"type":"resend","from":N}
+//
+// Capture frames also carry "tap": bytes heard on the user's board's serial
+// line (one wire on TAP_RX_PIN, receive only). Two OLED screens show status
+// and live readings. Each window a one-line summary also goes to the log port.
 
 #include <Arduino.h>
 #include <ArduinoJson.h>
@@ -25,8 +29,10 @@
 #include <string>
 
 #include "capture.h"
+#include "display.h"
 #include "frame_ring.h"
 #include "probe_config.h"
+#include "tap.h"
 
 #ifndef KIRCH_FIRMWARE_VERSION
 #define KIRCH_FIRMWARE_VERSION "dev"
@@ -169,7 +175,7 @@ void startNetworkServices() {
   networkStarted = true;
 }
 
-void publishCapture(const std::string &probesJson) {
+void publishCapture(const std::string &probesJson, const std::string &tapJson) {
   const uint32_t seq = nextSeq++;
   // Build the frame around the already-serialized probes object.
   std::string frame;
@@ -191,10 +197,34 @@ void publishCapture(const std::string &probesJson) {
   frame += std::to_string(WINDOW_MS);
   frame += ",\"probes\":";
   frame += probesJson;
+  frame += ",\"tap\":";
+  frame += tapJson;
   frame += "}";
 
   sentFrames.push(seq, frame);
   if (networkStarted) ws.broadcastTXT(reinterpret_cast<const uint8_t *>(frame.data()), frame.size());
+}
+
+// Screen A: who we are, how to reach us, what the tap hears.
+void showStatus(const tap::Stats &t) {
+  display::Status s{};
+  snprintf(s.line[0], sizeof(s.line[0]), "%s", deviceId + 6); // "probe-b52834"
+  if (wifiUp) {
+    snprintf(s.line[1], sizeof(s.line[1]), "WiFi %s", WiFi.localIP().toString().c_str());
+    snprintf(s.line[2], sizeof(s.line[2]), "clients %u  fw %s", networkStarted ? ws.connectedClients() : 0u,
+             KIRCH_FIRMWARE_VERSION);
+  } else {
+    snprintf(s.line[1], sizeof(s.line[1]), "Setup: %s", bleName);
+    snprintf(s.line[2], sizeof(s.line[2]), "app code %s", PROV_POP);
+  }
+  snprintf(s.line[3], sizeof(s.line[3]), "tap %s", t.bytesTotal ? t.lastHex : "silent");
+  display::setStatus(s);
+}
+
+void logSummary(uint32_t seq, const tap::Stats &t) {
+  Serial.printf("[cap] #%lu tap %lu bytes (total %lu)%s%s\n", static_cast<unsigned long>(seq),
+                static_cast<unsigned long>(t.lastWindowBytes), static_cast<unsigned long>(t.bytesTotal),
+                t.bytesTotal ? " last: " : "", t.bytesTotal ? t.lastHex : "");
 }
 
 } // namespace
@@ -215,6 +245,8 @@ void setup() {
                           WIFI_PROV_SECURITY_1, PROV_POP, bleName, nullptr, nullptr,
                           forgetWifi);
 
+  display::begin();
+  tap::begin();
   capture::begin(); // measures even while offline; frames are buffered
 }
 
@@ -222,7 +254,16 @@ void loop() {
   if (wifiUp && !networkStarted) startNetworkServices();
   if (networkStarted) ws.loop();
 
+  tap::poll();
   std::string probesJson;
-  if (capture::poll(millis(), probesJson)) publishCapture(probesJson);
+  if (capture::poll(millis(), probesJson)) {
+    const uint32_t seq = nextSeq;
+    const std::string tapJson = tap::finishWindow();
+    const tap::Stats t = tap::stats();
+    publishCapture(probesJson, tapJson);
+    display::setReadings(probesJson, t.lastWindowBytes);
+    showStatus(t);
+    logSummary(seq, t);
+  }
   delay(1);
 }

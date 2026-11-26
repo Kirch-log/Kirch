@@ -168,12 +168,17 @@ ESP32-S3 + screens + clip wires (multiplexers later). It measures the user's cir
 | P2, P3, P4 | 3, 16, 21 | pulses (period, high time) — P4 = servo |
 | P5 | 9 | voltage |
 | P6 | 48 | on / off |
+| Tap | 7 | their board's serial line (one wire to their TX + GND; receive only) — bytes go out in each reading as `"tap"` |
+| Screens | 17/18, 4/5 | screen A: status, Wi-Fi setup, last tap bytes · screen B: live clip readings |
 
 ```bash
-cd firmware && pio run -t upload              # flash once over USB
-python firmware/tools/probe_listen.py         # see readings on the laptop
-python firmware/tools/fake_probe.py --drop 0.2 # test without the board
+cd firmware && pio run -t upload                          # flash (logs on the "USB" port)
+cd firmware && pio run -e esp32s3-uart -t upload          # flash (logs on the "UART" port)
+python firmware/tools/probe_listen.py                     # see readings on the laptop
+python firmware/tools/fake_probe.py --drop 0.2            # test without the board
 ```
+
+**Test circuit for now:** the FPGA accelerator's ESP bridge (held in reset, so it's just a cable to the FPGA). Tap wire: FPGA **IO1** (its TX to the laptop) → our module **GPIO7**, plus GND. The tap is set to 2 Mbaud for it (`TAP_BAUD` in `include/probe_config.h`).
 
 ---
 

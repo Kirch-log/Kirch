@@ -107,7 +107,7 @@ How it connects: **their circuit + their ESP → our module (ESP32-S3, screens, 
 - [ ] Tap wire: listen to their board's serial line with one wire, nothing changed on their side (first test: the FPGA accelerator's ESP bridge) — **🔨 Hridhayesh**
 
 **D. Our module's screens**
-- [ ] Screens on the module: status, Wi-Fi, live readings (2 × SSD1306) — **🔨 Hridhayesh**
+- [~] Screens on the module: status, Wi-Fi, live readings (2 × SSD1306; both start on the real board)
 - [ ] Battery level
 
 **E. Camera (optional)**
