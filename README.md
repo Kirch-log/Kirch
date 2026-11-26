@@ -19,8 +19,8 @@ Built from scratch in Go. Kirch stores data exactly like git, so real git is our
 flowchart LR
   subgraph bench["Your bench + laptop"]
     board["Their circuit"]
-    their["Their ESP + Kirch agent<br/>reports every pin"]
-    probe["Our probe · ESP32-S3<br/>+ 6 clip wires (backup)<br/>Part 3"]
+    their["Their ESP<br/>(their firmware, untouched)"]
+    probe["Our module · ESP32-S3<br/>screens · 6 clip wires<br/>(multiplexers later)<br/>Part 3"]
     cam["Camera (optional)<br/>part positions"]
     cli["kirch CLI · Go<br/>cmd/ + internal/ engine<br/>.kirch/ + circuit files<br/>Part 1"]
     agent["AI agent<br/>debug · explain · fix · bisect<br/>Part 4"]
@@ -41,8 +41,8 @@ flowchart LR
   end
 
   their -- drives --> board
-  their -- "USB cable<br/>(or ESP-NOW)" --> probe
-  board -. "6 clip wires" .-> probe
+  their -- "USB cable<br/>(serial output)" --> probe
+  board -- "clip wires<br/>(pin data)" --> probe
   cam -.-> probe
   probe -- "Wi-Fi · WebSocket<br/>(found via mDNS)" --> cli
   agent -- "engine as tools" --> cli
@@ -72,7 +72,8 @@ Green = built · amber = in progress · dashed = planned.
 |---|---|---|
 | `kirch push` / `pull` / `clone` → server | Custom TCP + TLS (`kirch://`) | 9418 |
 | Website → server | HTTP + JSON | 8080 |
-| Their ESP → our probe | USB cable (or ESP-NOW radio) | — |
+| Their ESP → our module | USB cable (their serial output, read only) | — |
+| Their circuit → our module | Clip wires (pin data) | — |
 | Probe → laptop | WebSocket (on TCP) | — |
 | Laptop finds probe | mDNS (on UDP) | 5353 |
 | Server → Postgres | Postgres protocol (`pgx`) | 5432 |
@@ -81,8 +82,8 @@ Custom TCP only where we control both ends (CLI and server). HTTP wherever a bro
 
 ### How a circuit gets in (the user writes nothing)
 
-1. The user plugs their ESP into our probe with one USB cable.
-2. Kirch reads their ESP code (`servo.attach(9)`) and the live data from their ESP (50 Hz pulses on GPIO9) and drafts the circuit.
+1. The user plugs their ESP into our module with one USB cable and clips on its wires. Their firmware is never changed.
+2. Kirch reads their ESP code without changing it (`servo.attach(9)`), the pins our clip wires measure (50 Hz pulses on GPIO9) and whatever their ESP prints, and drafts the circuit. Our module forwards everything over Wi-Fi to the laptop (Flask server).
 3. The user confirms "is this right?"; Kirch builds the drawing and a 3D digital twin itself (a camera, if there is one, adds where parts really sit).
 
 ### How a change moves
@@ -110,7 +111,7 @@ Custom TCP only where we control both ends (CLI and server). HTTP wherever a bro
 | 2 | Platform — **B. backend**: TCP push/pull, Postgres, indexer, HTTP API, Docker | 🔨 Starting | Evin |
 | 2 | Platform — **A. product spec** (draft in `docs/platform.md`) + **C. website** | 🔨 Draft | Hridhayesh |
 | 2 | Platform — **D. getting circuits in**: draft circuit from the user's ESP code + data | ⬜ Planned | Hridhayesh |
-| 3 | Probe: firmware built, flashed, Bluetooth works; next: their ESP plugs in by USB + Kirch agent; 6 clip wires as backup | 🔨 In progress | Hridhayesh |
+| 3 | Our module: firmware built, flashed, Bluetooth works; next: Wi-Fi test, their ESP's serial output over USB, screens (multiplexers later) | 🔨 In progress | Hridhayesh |
 | 4 | AI agent (`explain`, `debug`, `fix`, `bisect --auto`) | ⬜ Planned | Open |
 | 5 | 3D digital twin (auto-layout, optional camera) + 3D diff | ⬜ Planned | Open |
 

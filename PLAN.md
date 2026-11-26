@@ -14,11 +14,11 @@
 
 1. **`kirch` command line** — our own git for circuits (commit, branch, diff, merge, push).
 2. **Platform** — a GitHub-like server + website to share circuits.
-3. **Probe** — our ESP32-S3 that the user's own ESP plugs into (one USB cable); it reports every pin and what their code is doing, with 6 clip wires as a physical backup.
+3. **Probe** — our module (ESP32-S3 + screens + clip wires; multiplexers later): measures the user's circuit, gets their ESP's serial output over USB, and forwards everything to us over Wi-Fi. **We never touch their ESP's firmware.**
 4. **Agent** — AI that uses history + probe readings to find problems and suggest fixes.
 5. **3D view** — a 3D "digital twin" of the circuit for every commit, built by Kirch itself (no drawing needed), with 3D diffs.
 
-**The user does almost nothing:** plug their ESP into our probe (and optionally point a camera at the bench). Kirch works out the circuit from their code + the data, and they just confirm "is this right?".
+**The user does almost nothing:** plug their ESP into our module and clip on the wires (optionally point a camera at the bench). Kirch works out the circuit from their code (read only) + the measurements, and they just confirm "is this right?".
 
 ---
 
@@ -56,8 +56,9 @@ Three tracks. **A** comes first (small) — it decides what the API must return.
 - [ ] API shape agreed by both of us (endpoints + JSON each returns)
 
 **D. Getting circuits in — auto-detect first, the user writes nothing**
-- [ ] Read the user's ESP code → which pins are used and for what (`servo.attach(9)` → servo on GPIO9)
-- [ ] Recognise parts from their signals (50 Hz pulses = servo, trigger + echo = ultrasonic sensor, …)
+- [ ] Read the user's ESP code (never change it) → which pins are used and for what (`servo.attach(9)` → servo on GPIO9)
+- [ ] Recognise parts from the signals our clip wires measure (50 Hz pulses = servo, trigger + echo = ultrasonic sensor, …)
+- [ ] Use their ESP's serial output too ("distance: 23 cm" → an ultrasonic sensor)
 - [ ] Combine code + signals into a draft circuit → `parts.json` + `netlist.json`
 - [ ] "Is this right?" — the user confirms or fixes the draft with one click
 - [ ] Engine helpers for the website: circuit summary, parts diff, ahead/behind, "can merge?" check
@@ -82,41 +83,44 @@ Parked (not part of the product — users don't draw circuits): a KiCad import w
 
 - [ ] 🎯 Done when: one person pushes, another pulls, both see the commit on the website
 
-### Part 3 — Probe
-How it connects: **their ESP → (USB cable) → our probe (ESP32-S3) → (Wi-Fi) → laptop.**
-Our probe gets data from their ESP; the 6 clip wires are a physical backup ("does the signal really reach the part?").
+### Part 3 — Probe (our module)
+How it connects: **their circuit + their ESP → our module (ESP32-S3, screens, clip wires) → Wi-Fi → laptop (Flask server) → Kirch.**
+- **Their ESP is completely theirs:** we never change or upload its firmware. It only plugs into our module.
+- Without our code on their chip it can't report its pins, so **pin data comes from our clip wires** (multiplexers later for many more pins); their ESP gives us its serial output.
 
-**A. Probe basics (built)**
+**A. Module basics (built)**
 - [~] Wi-Fi set up from a phone over Bluetooth
 - [~] Laptop finds it as `kirch-probe.local`
 - [~] Sends readings over Wi-Fi and re-sends any that get lost
 - [x] Laptop tools to listen to the probe, and a fake probe for testing
 - [ ] Tested on the real ESP32 — **🔨 Hridhayesh** (boots + Bluetooth works; Wi-Fi test next)
 
-**B. Talk to their ESP (main data source)**
-- [ ] Kirch agent: a tiny library on their ESP that reports every pin (state, voltage, pulses), how each pin is set up, and what their code is doing
-- [ ] USB link: their ESP plugs into our probe's "USB" port — power, their logs, and the agent's data over one cable
-- [ ] Our probe uploads their code for them and adds the agent automatically (they never touch it)
-- [ ] Wireless option: ESP-NOW link when their board is somewhere else (no router needed)
-- [ ] Check our board can power theirs through the USB port (5 V out jumper)
-
-**C. 6 clip wires (physical backup)**
+**B. Clip wires — the pin data (main source)**
 - [~] Reads 6 pins once a second (analog / on-off / pulses)
 - [ ] Measure very short pulses accurately
-- [ ] Used to confirm signals really reach the parts, and for boards without Wi-Fi (e.g. Arduino Uno)
+- [ ] Later: multiplexers so one module can watch many more pins
 
-**D. Camera (optional)**
+**C. Their ESP plugged into our module (read only)**
+- [ ] USB link: their ESP plugs into our module's "USB" port → we get whatever their program prints (`Serial.print`) and forward it
+- [ ] Check our board can power theirs through that port (5 V out jumper); big loads need their own supply
+- [ ] Common USB chips on their boards (CH340, CP2102, native USB)
+
+**D. Our module's screens**
+- [ ] Screens on the module: status, Wi-Fi, live readings
+- [ ] Battery level
+
+**E. Camera (optional)**
 - [ ] Camera above the bench (ESP32-S3 camera board or phone) → which parts are where, and which way they face
 
-**E. Using the data**
-- [ ] One combined stream: their ESP's data + our 6 wires + camera → laptop
+**F. Getting the data to us**
+- [ ] Laptop receiver (Flask server) gets the data over Wi-Fi
+- [ ] One combined stream: clip-wire readings + their serial output + camera
 - [ ] `kirch capture` — save readings into a commit
 - [ ] `kirch verify` — compare the live board with the current commit
-- [ ] Pair the probe with a key (`kirch probe pair`)
-- [ ] Update probe firmware over Wi-Fi
-- [ ] Probe makes its own Wi-Fi if the local network blocks it
-- [ ] Battery level + small screen
-- [ ] 🎯 Done when: plugging in an ESP is enough for Kirch to know its circuit, and a commit contains its real readings
+- [ ] Pair the module with a key (`kirch probe pair`)
+- [ ] Update our module's firmware over Wi-Fi (ours only, never theirs)
+- [ ] Module makes its own Wi-Fi if the local network blocks it
+- [ ] 🎯 Done when: plug in their ESP + clip on the wires → Kirch knows the circuit, and a commit contains its real readings
 
 ### Part 4 — Agent
 - [ ] `kirch explain` — describe a wiring change in plain English
@@ -155,15 +159,17 @@ Our probe gets data from their ESP; the 6 clip wires are a physical backup ("doe
 - Push/pull uses **our own TCP protocol** (`kirch://`, TLS, port 9418), built from scratch; the website uses **HTTP** (port 8080), since browsers can't open raw TCP (changed 2026-11-14 from HTTP + JSON push/pull).
 - Postgres is only an index; the repo folders on the server are the source of truth (Postgres can be rebuilt from them).
 - The AI never changes history by itself — it only suggests fixes on a new branch.
-- **The user writes nothing (2026-11-25).** Kirch works out the circuit from their ESP code + data from their ESP; the user only confirms. **No KiCad or other drawing tools** — the KiCad import already built is parked.
-- **Their ESP plugs into our probe by USB (2026-11-25)** — power, logs, auto-upload and all-pin data over one cable; ESP-NOW is the wireless option. Our 6 clip wires are a physical backup, not the main source.
-- **Their ESP runs a tiny Kirch agent** to report its pins; our probe adds it when it uploads their code, so they never edit anything.
-- Probe ↔ laptop is Wi-Fi; probe ↔ their ESP is USB (or ESP-NOW).
+- **The user writes nothing (2026-11-25).** Kirch works out the circuit from their ESP code (read only) + our measurements; the user only confirms. **No KiCad or other drawing tools** — the KiCad import already built is parked.
+- **We never touch their ESP's firmware (2026-11-25).** No agent, no uploads. Their ESP plugs into our module by USB and we take whatever it prints.
+- **Pin data comes from our clip wires** (6 now, multiplexers later for more) — a chip can't report its pins without code on it.
+- Our module = ESP32-S3 + screens + clip wires (+ multiplexers later); it forwards everything to the laptop over Wi-Fi (Flask server).
 - **3D is a digital twin Kirch builds itself** — not a copy of their desk. A camera (optional) adds where parts really are and which way they face; wires are always drawn by Kirch.
 - Pins on the user's ESP are named by GPIO (`U1.GPIO9`); parts' pins by their name (`SERVO1.SIG`).
 
 ## Open questions
 - Which AI model to use for the agent, and the cost limit
 - Which camera: ESP32-S3 camera board on the probe, or the phone
-- Which ESP boards the agent supports first (ESP32-S3 / ESP32 / C3) and which USB chips (CH340, CP2102…)
+- Which USB chips on their boards we support first (CH340, CP2102, native USB)
 - Big loads (servos, motors) need more power than USB gives — tell the user to add a supply
+- Multiplexer chip and how many pins (later)
+- Which screens on the module (size, how many)

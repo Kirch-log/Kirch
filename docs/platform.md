@@ -20,8 +20,8 @@ GitHub shows files and text. Kirch shows wires, parts and real measurements.
 
 ## 2b. How circuits get in: the user writes nothing
 
-- The user plugs their ESP into our probe (one USB cable). That's all they do.
-- Kirch reads their ESP code (`servo.attach(9)` → servo on GPIO9) and the live data from their ESP (50 Hz pulses on GPIO9 → a servo).
+- The user plugs their ESP into our module (one USB cable) and clips on its wires. That's all they do. We never change their ESP's firmware.
+- Kirch reads their ESP code, without changing it (`servo.attach(9)` → servo on GPIO9), the pins our clip wires measure (50 Hz pulses on GPIO9 → a servo), and whatever their ESP prints.
 - From both it makes a draft circuit (`parts.json` + `netlist.json`); the user confirms "is this right?" with one click.
 - Kirch draws the circuit itself (auto-layout, 3D digital twin); a camera above the bench (optional) adds where parts really sit.
 - No KiCad or other drawing tools (a KiCad import was built before this decision; it's parked).
