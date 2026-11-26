@@ -17,7 +17,7 @@ import (
 	"github.com/Kirch-log/kirch/internal/kicad"
 )
 
-// KiCad designs in a repository (docs/platform.md, "How circuits get in").
+// KiCad designs in a repository (PLAN.md).
 //
 // kirch import kicad writes netlist.json and parts.json at the top of the
 // repository, with "source": "kicad:<path of the .kicad_sch>". From then on

@@ -200,7 +200,7 @@ func TestWiring(t *testing.T) {
 		want      []string
 	}{
 		{"same", base, []string{}},
-		{"servo signal moved (docs/formats.md example)",
+		{"servo signal moved (README example)",
 			netlist(`"GND":["SERVO1.GND","U1.GND","US1.GND"],"SERVO_SIG":["SERVO1.SIG","U1.GPIO10"],"5V":["SERVO1.VCC","U1.5V"]`),
 			[]string{"SERVO1.SIG: U1.GPIO9 → U1.GPIO10"}},
 		{"swap on a net with several pins",

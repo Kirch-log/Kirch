@@ -1,6 +1,6 @@
 // Package merge combines two versions of a file that grew apart from a
 // common base: a line-based three-way merge for text (like git), and a
-// net-by-net merge for netlist.json (docs/formats.md, "Merge").
+// net-by-net merge for netlist.json (README, "Circuit files").
 package merge
 
 import (

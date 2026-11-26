@@ -163,7 +163,7 @@ func pinName(function, num string) string {
 	return name
 }
 
-// Kirch's files from a netlist (docs/formats.md):
+// Kirch's files from a netlist (README, "Circuit files"):
 //
 //	netlist.json  nets → "REF.PIN" lists, pins by number ("U1.9"); nets with a
 //	              single pin are unconnected pins and left out

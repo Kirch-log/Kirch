@@ -1,5 +1,5 @@
 // Package kicad reads KiCad designs and turns them into Kirch's circuit
-// files (netlist.json, parts.json). See docs/platform.md, "How circuits get in".
+// files (netlist.json, parts.json). See PLAN.md.
 package kicad
 
 import (

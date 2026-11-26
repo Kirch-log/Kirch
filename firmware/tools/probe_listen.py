@@ -6,7 +6,7 @@
     python firmware/tools/probe_listen.py --save capture.json --count 1
 
 Asks the probe to re-send any frames it missed (numbered by "seq").
---save writes the last reading in the kirch.capture/1 format (docs/formats.md),
+--save writes the last reading in the kirch.capture/1 format (README, "Circuit files"),
 without "net" fields; the kirch CLI will add those later.
 """
 

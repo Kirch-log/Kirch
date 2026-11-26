@@ -41,7 +41,7 @@ type pending struct {
 // A path that was deleted on disk is removed from the index.
 //
 // Circuit files (netlist.json, parts.json, layout.json, capture.json) are
-// checked and rewritten into canonical form first (docs/formats.md). If any
+// checked and rewritten into canonical form first (README, "Circuit files"). If any
 // file is invalid, nothing is staged and nothing on disk is changed.
 func (r *Repo) Add(paths []string) (*AddResult, error) {
 	if len(paths) == 0 {

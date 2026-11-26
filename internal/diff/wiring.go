@@ -53,7 +53,7 @@ func (c WiringChange) String() string {
 	return string(c.Kind)
 }
 
-// Wiring compares two netlist.json versions pin by pin (docs/formats.md).
+// Wiring compares two netlist.json versions pin by pin (README, "Circuit files").
 // Either side may be empty (file added or deleted).
 func Wiring(oldData, newData []byte) ([]WiringChange, error) {
 	oldNets, err := parseNets(oldData)

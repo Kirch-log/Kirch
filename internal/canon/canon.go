@@ -1,6 +1,6 @@
 // Package canon rewrites Kirch's circuit files into one standard layout, so
 // the same circuit always produces the same bytes (and the same object id),
-// and moving one wire changes one line. See docs/formats.md, "Rules for all files".
+// and moving one wire changes one line. See README, "Circuit files".
 //
 // Canonical form: object keys sorted, lists of strings sorted, 2-space indent,
 // one item per line, trailing newline. Numbers are kept exactly as written.
@@ -105,7 +105,7 @@ func check(name string, obj map[string]any) error {
 	return nil
 }
 
-// Each pin may be in at most one net (docs/formats.md, netlist.json).
+// Each pin may be in at most one net (README, "Circuit files").
 func checkNetlist(obj map[string]any) error {
 	if _, ok := obj["conflicts"]; ok {
 		return errors.New(`still has merge conflicts: fix the nets and pins listed under "conflicts", then delete "conflicts"`)

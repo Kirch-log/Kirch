@@ -17,7 +17,7 @@ import (
 // other than "nets" changed on both sides; merge it as text instead.
 var ErrNotNetlist = errors.New("can't merge as a netlist")
 
-// Netlist merges netlist.json net by net (docs/formats.md, "Merge"):
+// Netlist merges netlist.json net by net (README, "Circuit files"):
 //
 //   - a net changed on one side only takes that side's pins
 //   - a net both sides changed the same way takes that change

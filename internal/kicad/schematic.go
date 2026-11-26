@@ -379,7 +379,7 @@ func (sh *Sheet) sort() {
 	})
 }
 
-// File returns schematic.json (docs/formats.md), canonical.
+// File returns schematic.json (README, "Circuit files"), canonical.
 func (s *Schematic) File() ([]byte, error) {
 	sheets := map[string]any{}
 	for name, sh := range s.Sheets {

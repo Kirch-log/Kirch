@@ -4,7 +4,7 @@
     python firmware/tools/fake_probe.py --drop 0.2 # "lose" 20% of frames over Wi-Fi
 
 Speaks the same messages as firmware/src/main.cpp: hello, capture, gap, resend.
-Simulates the ultrasonic + servo circuit from docs/formats.md.
+Simulates the ultrasonic + servo circuit from README, "Circuit files".
 """
 
 import argparse
