@@ -116,7 +116,7 @@ Custom TCP only where we control both ends (CLI and server). HTTP wherever a bro
 | 4 | AI agent (`explain`, `debug`, `fix`, `bisect --auto`) | ⬜ Planned | Open |
 | 5 | 3D digital twin (auto-layout, optional camera) + 3D diff | ⬜ Planned | Open |
 
-Full checklist: [`PLAN.md`](PLAN.md)
+The big picture: [`PROJECT.md`](PROJECT.md) · Full checklist: [`PLAN.md`](PLAN.md)
 
 ---
 

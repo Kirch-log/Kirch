@@ -142,7 +142,7 @@ How it connects: **their circuit + their ESP → our module (ESP32-S3, screens, 
 - [ ] Put it online on AWS
 - [ ] Store big files (photos, binaries) in S3
 - [ ] Cloud mode for the probe (AWS IoT)
-- [ ] Logins, pull requests and comments
+- [ ] Pull requests and comments (GitHub login + tokens are v1, see README "Website plan")
 - [ ] Make push/pull safe for big repos and many users
 - [ ] Merge all branches into `main`
 
@@ -151,7 +151,7 @@ How it connects: **their circuit + their ESP → our module (ESP32-S3, screens, 
 ## Decisions (one line each)
 - Name is **kirch**; repo data lives in a `.kirch` folder.
 - Built from scratch in **Go**; it stores data exactly like git, so real git is our test checker.
-- Circuit files: `netlist.json`, `parts.json`, `layout.json`, `capture.json`, `schematic.json` — see the README, "Circuit files".
+- Circuit files: `netlist.json`, `parts.json`, `layout.json`, `capture.json` — see the README, "Circuit files".
 - Kirch's own files end in `.json` (`index.json`, `config.json`) so git can still read the folder.
 - Netlists merge **net by net**: two branches changing the same net differently = conflict (changed 2026-11-14 from "per pin", which could short pins).
 - Platform stack: Go server + Postgres + Next.js website; Docker locally, AWS when online.
