@@ -18,19 +18,18 @@ GitHub shows files and text. Kirch shows wires, parts and real measurements.
 - So v1 = a few pages that show those really well, and as little plumbing as possible.
 - Look and words stay GitHub-like (header, tabs, "Commits", "Branches"), so it feels familiar.
 
-## 2b. How circuits get in: KiCad first
+## 2b. How circuits get in: the user writes nothing
 
-- People design in **KiCad** (free, the most used free circuit / PCB tool).
-- `kirch import kicad board.kicad_sch` turns the design into Kirch's files (`netlist.json`, `parts.json`) — it runs KiCad's own `kicad-cli` to export the netlist.
-- After that, `kirch add` re-imports by itself whenever the KiCad design changed, so you just keep working in KiCad.
-- Commit both: the KiCad files (the design) and Kirch's files (what diffs, history and the website read).
-- Pins are named by **number** (`U1.9`) because names repeat (several `GND` pins); the readable name (`GPIO9`) is kept in `parts.json` and shown next to it.
-- Next importers: KiCad schematic positions (so the website draws your real schematic), then Wokwi (students, ESP32), then the KiCad board for 3D (Part 5).
-- Who it's for: makers and students building ESP32 / Arduino boards, and anyone designing in KiCad.
+- The user plugs their ESP into our probe (one USB cable). That's all they do.
+- Kirch reads their ESP code (`servo.attach(9)` → servo on GPIO9) and the live data from their ESP (50 Hz pulses on GPIO9 → a servo).
+- From both it makes a draft circuit (`parts.json` + `netlist.json`); the user confirms "is this right?" with one click.
+- Kirch draws the circuit itself (auto-layout, 3D digital twin); a camera above the bench (optional) adds where parts really sit.
+- No KiCad or other drawing tools (a KiCad import was built before this decision; it's parked).
+- Who it's for: makers and students building ESP32 projects.
 
 ## 3. The 2-minute demo (what v1 must make possible)
 
-1. Open a repo → see the circuit drawn, with parts and nets.
+1. Plug an ESP into the probe → Kirch works out the circuit; open the repo → see it drawn, with parts and nets.
 2. Open the commit list → each commit says what changed in wires ("servo moved GPIO9 → GPIO10").
 3. Open one commit → changed wires highlighted on the drawing, then parts, then code.
 4. Click a pin → its whole history: every commit that moved it.
@@ -145,15 +144,15 @@ Database tables for v1: `users`, `tokens`, `repos`, `pushers`, `commits` (with w
 - Parts diff: parts added / removed / changed. **(new)**
 - Ahead / behind for branches, and a "can these merge?" check without touching files. **(small — reuse merge)**
 - Code diff as JSON lines for the website. **(small)**
-- 2D drawing: uses real positions from the KiCad schematic when imported; otherwise a tidy list view (auto-drawn circuits often look like spaghetti). **(website side)**
-- KiCad import: `kirch import kicad`, then auto-sync on `kirch add`, then schematic positions. **(new — first)**
+- Draft circuit from the user's ESP code + data (see `PLAN.md` track D). **(new — first)**
+- Drawing: Kirch's own auto-layout (`layout.json`), with positions from the camera when there is one. **(new)**
 
 ---
 
 ## 10. Decide together (tick when agreed)
 
 - [ ] Circuit first (this draft) instead of a GitHub copy
-- [ ] KiCad is the first way in; pins named by number (`U1.9`) with names kept in `parts.json`
+- [ ] Circuits come from the user's ESP (code + data), not from drawing tools
 - [ ] Log in with GitHub only in v1
 - [ ] All repos public in v1
 - [ ] The v1 pages in section 4 (cut or add any)
@@ -165,7 +164,7 @@ Database tables for v1: `users`, `tokens`, `repos`, `pushers`, `commits` (with w
 ## 11. Build order
 
 1. Agree section 10 (both).
-2. KiCad import, then engine helpers from section 9 (Hridhayesh).
+2. Draft circuit from ESP code + data, then engine helpers from section 9 (Hridhayesh).
 3. Server: login, tokens, repos, indexer, API (Evin).
 4. Website pages, using fake data until the API is ready (Hridhayesh).
 5. Readings page once `kirch capture` works (Part 3).
