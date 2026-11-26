@@ -18,8 +18,10 @@ Built from scratch in Go. Kirch stores data exactly like git, so real git is our
 ```mermaid
 flowchart LR
   subgraph bench["Your bench + laptop"]
-    board["Circuit board"]
-    probe["Probe · ESP32-S3<br/>Part 3"]
+    board["Their circuit"]
+    their["Their ESP + Kirch agent<br/>reports every pin"]
+    probe["Our probe · ESP32-S3<br/>+ 6 clip wires (backup)<br/>Part 3"]
+    cam["Camera (optional)<br/>part positions"]
     cli["kirch CLI · Go<br/>cmd/ + internal/ engine<br/>.kirch/ + circuit files<br/>Part 1"]
     agent["AI agent<br/>debug · explain · fix · bisect<br/>Part 4"]
     claude["Claude API"]
@@ -38,7 +40,10 @@ flowchart LR
     view3d["3D view · Three.js<br/>Part 5"]
   end
 
-  board -- pins --> probe
+  their -- drives --> board
+  their -- "USB cable<br/>(or ESP-NOW)" --> probe
+  board -. "6 clip wires" .-> probe
+  cam -.-> probe
   probe -- "Wi-Fi · WebSocket<br/>(found via mDNS)" --> cli
   agent -- "engine as tools" --> cli
   agent --> claude
@@ -56,7 +61,7 @@ flowchart LR
   classDef plan stroke:#8A958F,stroke-width:2px,stroke-dasharray:5 4
   class cli built
   class probe wip
-  class agent,push,indexer,api,repos,pg,web,view3d plan
+  class agent,push,indexer,api,repos,pg,web,view3d,their,cam plan
 ```
 
 Green = built · amber = in progress · dashed = planned.
@@ -67,15 +72,22 @@ Green = built · amber = in progress · dashed = planned.
 |---|---|---|
 | `kirch push` / `pull` / `clone` → server | Custom TCP + TLS (`kirch://`) | 9418 |
 | Website → server | HTTP + JSON | 8080 |
+| Their ESP → our probe | USB cable (or ESP-NOW radio) | — |
 | Probe → laptop | WebSocket (on TCP) | — |
 | Laptop finds probe | mDNS (on UDP) | 5353 |
 | Server → Postgres | Postgres protocol (`pgx`) | 5432 |
 
 Custom TCP only where we control both ends (CLI and server). HTTP wherever a browser is involved.
 
+### How a circuit gets in (the user writes nothing)
+
+1. The user plugs their ESP into our probe with one USB cable.
+2. Kirch reads their ESP code (`servo.attach(9)`) and the live data from their ESP (50 Hz pulses on GPIO9) and drafts the circuit.
+3. The user confirms "is this right?"; Kirch builds the drawing and a 3D digital twin itself (a camera, if there is one, adds where parts really sit).
+
 ### How a change moves
 
-1. Edit `netlist.json` or firmware, then `kirch commit`. The engine saves it in `.kirch/`, byte-identical to git.
+1. Change the circuit or firmware, then `kirch commit`. The engine saves it in `.kirch/`, byte-identical to git.
 2. `kirch push` opens a TLS connection on `kirch://`, sends only the missing objects, and the server writes them into that repo's folder.
 3. The server runs `IndexRepo()`, which copies new commits and branches into Postgres.
 4. The website calls the HTTP API. Lists come from Postgres; diffs and files are read from the repo folder by the same engine.
@@ -89,17 +101,18 @@ Custom TCP only where we control both ends (CLI and server). HTTP wherever a bro
 
 ---
 
-## Status — 14 Nov 2026
+## Status — 25 Nov 2026
 
 | Part | What | Status | Owner |
 |---|---|---|---|
 | 0 | Setup: plan, data formats, CI, release builds (v0.1.0) | ✅ Done | Hridhayesh |
 | 1 | `kirch` command line: init, add, commit, log, status, branch, diff, reset, revert, merge, clone/push/pull to a folder | ✅ Done | Hridhayesh |
 | 2 | Platform — **B. backend**: TCP push/pull, Postgres, indexer, HTTP API, Docker | 🔨 Starting | Evin |
-| 2 | Platform — **A. product spec** + **C. website** | ⬜ Planned | Open |
-| 3 | Probe: firmware built, flashed, Bluetooth works; Wi-Fi test next | 🔨 In progress | Hridhayesh |
+| 2 | Platform — **A. product spec** (draft in `docs/platform.md`) + **C. website** | 🔨 Draft | Hridhayesh |
+| 2 | Platform — **D. getting circuits in**: draft circuit from the user's ESP code + data | ⬜ Planned | Hridhayesh |
+| 3 | Probe: firmware built, flashed, Bluetooth works; next: their ESP plugs in by USB + Kirch agent; 6 clip wires as backup | 🔨 In progress | Hridhayesh |
 | 4 | AI agent (`explain`, `debug`, `fix`, `bisect --auto`) | ⬜ Planned | Open |
-| 5 | 3D view + 3D diff | ⬜ Planned | Open |
+| 5 | 3D digital twin (auto-layout, optional camera) + 3D diff | ⬜ Planned | Open |
 
 Full checklist: [`PLAN.md`](PLAN.md) · File formats: [`docs/formats.md`](docs/formats.md) · Probe: [`firmware/README.md`](firmware/README.md)
 
