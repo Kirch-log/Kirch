@@ -109,13 +109,71 @@ Custom TCP only where we control both ends (CLI and server). HTTP wherever a bro
 | 0 | Setup: plan, data formats, CI, release builds (v0.1.0) | ✅ Done | Hridhayesh |
 | 1 | `kirch` command line: init, add, commit, log, status, branch, diff, reset, revert, merge, clone/push/pull to a folder | ✅ Done | Hridhayesh |
 | 2 | Platform — **B. backend**: TCP push/pull, Postgres, indexer, HTTP API, Docker | 🔨 Starting | Evin |
-| 2 | Platform — **A. product spec** (draft in `docs/platform.md`) + **C. website** | 🔨 Draft | Hridhayesh |
+| 2 | Platform — **A. product spec** (draft below, "Website plan") + **C. website** | 🔨 Draft | Hridhayesh |
 | 2 | Platform — **D. getting circuits in**: draft circuit from the user's ESP code + data | ⬜ Planned | Hridhayesh |
 | 3 | Our module: firmware built, flashed, Bluetooth works; next: Wi-Fi test, their ESP's serial output over USB, screens (multiplexers later) | 🔨 In progress | Hridhayesh |
 | 4 | AI agent (`explain`, `debug`, `fix`, `bisect --auto`) | ⬜ Planned | Open |
 | 5 | 3D digital twin (auto-layout, optional camera) + 3D diff | ⬜ Planned | Open |
 
-Full checklist: [`PLAN.md`](PLAN.md) · File formats: [`docs/formats.md`](docs/formats.md) · Probe: [`firmware/README.md`](firmware/README.md)
+Full checklist: [`PLAN.md`](PLAN.md)
+
+---
+
+## Circuit files
+
+What a Kirch commit stores for a circuit. Every file starts with `"format": "kirch.<name>/1"`.
+
+| File | What it says |
+|---|---|
+| `parts.json` | The parts: `{"SERVO1": {"type": "servo", "model": "SG90"}}` |
+| `netlist.json` | Which pins are connected: `{"SIG": ["SERVO1.SIG", "U1.GPIO9"]}` |
+| `layout.json` | Where parts sit (for the 3D view) |
+| `capture.json` | What the probe measured |
+| `firmware/` | The circuit's code (normal text diff) |
+
+- A pin is written `PART.PIN` (`U1.GPIO9`), and a pin can be in only one net.
+- `kirch add` tidies these files (sorted, one item per line), so the same circuit always gives the same file.
+- The wiring diff reads each pin's net: `SERVO1.SIG: U1.GPIO9 → U1.GPIO10`.
+- Merge is net by net: two branches changing the same net differently is a conflict.
+
+---
+
+## Website plan (draft — needs both of us to agree)
+
+**Idea:** show what changed in a circuit and whether it still works. Wires, parts and real measurements, not just files.
+
+v1 pages:
+- **Circuit page** — the circuit drawn; click a part or a net to see its connections.
+- **Commits** — each one says what changed in wires ("2 wires moved").
+- **One commit** — changed wires highlighted, then parts, then code, then readings.
+- **Wire history** — every commit that moved one pin ("git blame for wires").
+- **Branches + compare** — ahead / behind, and whether two branches can merge.
+- **Readings** — probe values across commits (after `kirch capture` works).
+
+Kept small in v1: log in with GitHub, all repos public, about 15 API calls. Pull requests, private repos, teams and 3D come later.
+
+To agree: circuit-first (not a GitHub copy) · GitHub login · public only · the pages above · the API list · site name.
+
+---
+
+## Our probe module
+
+ESP32-S3 + screens + clip wires (multiplexers later). It measures the user's circuit, reads what their ESP prints over USB (we never change their firmware), and sends everything to the laptop over Wi-Fi.
+
+**First setup:** the module shows up over Bluetooth as `KIRCH_xxxxxx`. In the **ESP BLE Provisioning** phone app pick it, enter code `kirch1234`, then your 2.4 GHz Wi-Fi. It then appears as `kirch-probe.local` and sends readings every second (`ws://kirch-probe.local:81/`), re-sending any that get lost. Hold BOOT for 3 s at power-on to forget the Wi-Fi.
+
+| Clip | GPIO | Reads |
+|---|---:|---|
+| P1 | 8 | voltage (min / max / avg) |
+| P2, P3, P4 | 3, 16, 21 | pulses (period, high time) — P4 = servo |
+| P5 | 9 | voltage |
+| P6 | 48 | on / off |
+
+```bash
+cd firmware && pio run -t upload              # flash once over USB
+python firmware/tools/probe_listen.py         # see readings on the laptop
+python firmware/tools/fake_probe.py --drop 0.2 # test without the board
+```
 
 ---
 

@@ -26,7 +26,7 @@
 
 ### 0 — Setup
 - [x] Plan written (this file)
-- [x] Data formats for circuit files decided — [`docs/formats.md`](docs/formats.md)
+- [x] Data formats for circuit files decided — README, "Circuit files"
 - [x] Tech stack + hosting picked
 - [x] Repo set up with CI (every push builds and tests everything)
 - [x] CD: pushing a version tag publishes `kirch` for Windows/Mac/Linux + probe firmware (v0.1.0 out)
@@ -48,11 +48,11 @@
 ### Part 2 — Platform
 Three tracks. **A** comes first (small) — it decides what the API must return. Push/pull server doesn't wait on A.
 
-**A. Product — what the platform has** — draft 2 "circuit first" in `docs/platform.md`, waiting for both of us to agree (its section 10)
+**A. Product — what the platform has** — draft "circuit first" in the README ("Website plan"), waiting for both of us to agree
 - [ ] List the pages: repo list, repo page, commits, one commit, branches, compare two commits
 - [ ] What each page shows (wiring diff, firmware code diff, parts list, probe readings)
 - [ ] Who sees what: public / private repos, logins in v1 or later
-- [ ] What's in v1 vs later — written in `docs/platform.md`
+- [ ] What's in v1 vs later — written in the README
 - [ ] API shape agreed by both of us (endpoints + JSON each returns)
 
 **D. Getting circuits in — auto-detect first, the user writes nothing**
@@ -152,7 +152,7 @@ How it connects: **their circuit + their ESP → our module (ESP32-S3, screens, 
 ## Decisions (one line each)
 - Name is **kirch**; repo data lives in a `.kirch` folder.
 - Built from scratch in **Go**; it stores data exactly like git, so real git is our test checker.
-- Circuit files: `netlist.json`, `parts.json`, `layout.json`, `capture.json`, `schematic.json` — see [`docs/formats.md`](docs/formats.md).
+- Circuit files: `netlist.json`, `parts.json`, `layout.json`, `capture.json`, `schematic.json` — see the README, "Circuit files".
 - Kirch's own files end in `.json` (`index.json`, `config.json`) so git can still read the folder.
 - Netlists merge **net by net**: two branches changing the same net differently = conflict (changed 2026-11-14 from "per pin", which could short pins).
 - Platform stack: Go server + Postgres + Next.js website; Docker locally, AWS when online.
