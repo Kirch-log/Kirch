@@ -46,12 +46,19 @@
 ### Part 2 — Platform
 Three tracks. **A** comes first (small) — it decides what the API must return. Push/pull server doesn't wait on A.
 
-**A. Product — what the platform has**
+**A. Product — what the platform has** — draft 2 "circuit first" in `docs/platform.md`, waiting for both of us to agree (its section 10)
 - [ ] List the pages: repo list, repo page, commits, one commit, branches, compare two commits
 - [ ] What each page shows (wiring diff, firmware code diff, parts list, probe readings)
 - [ ] Who sees what: public / private repos, logins in v1 or later
 - [ ] What's in v1 vs later — written in `docs/platform.md`
 - [ ] API shape agreed by both of us (endpoints + JSON each returns)
+
+**D. Getting circuits in — KiCad first**
+- [x] `kirch import kicad` — KiCad design → `netlist.json` + `parts.json` (tested on KiCad's own demo projects)
+- [x] `kirch add` re-imports automatically when the KiCad design changed (`kirch status` says when it did)
+- [x] KiCad schematic positions → `schematic.json`, so the website can draw your real schematic (checked against KiCad's own drawing)
+- [ ] Engine helpers for the website: circuit summary, parts diff, ahead/behind, "can merge?" check
+- [ ] Wokwi import (students, ESP32)
 
 **B. Backend — the main server** — **Evin** ✅ (branch `server-backend/Evin`)
 - [x] Protocol spec for push/pull — [`docs/protocol.md`](docs/protocol.md) (custom TCP + TLS, `kirch://`, port 9418)

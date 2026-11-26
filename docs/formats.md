@@ -8,6 +8,7 @@ What a Kirch commit stores for a circuit. Closes the open question
 | `parts.json` | What parts are on the board? | diff, 3D, agent |
 | `netlist.json` | Which pins are electrically connected? | wiring diff, merge, verify, agent |
 | `layout.json` | Where is each part and wire physically? | 3D view, rewiring steps |
+| `schematic.json` | Where is everything drawn on the schematic? (from KiCad) | website drawing |
 | `capture.json` | What did the probe measure? | verify, bisect, agent |
 | `firmware/` | Code running on the circuit's board | normal text diff |
 
@@ -53,8 +54,18 @@ change formats later without breaking old commits.
 | `type` | yes | Generic kind: `mcu`, `resistor`, `capacitor`, `led`, `sensor`, `servo`, `power`, `connector`, … |
 | `model` | no | Exact part, e.g. `ESP32-S3-DevKitC-1`, `HC-SR04` — also picks the 3D model |
 | `value` | no | `1k`, `100nF`, `5V` |
-| `pins` | no | Pin names. Optional for 2-pin passives (`1`, `2` assumed) |
+| `pins` | no | Pin names, or pin numbers for KiCad imports. Optional for 2-pin passives (`1`, `2` assumed) |
+| `pin_names` | no | Pin number → readable name, e.g. `{"9": "GPIO9"}` (KiCad imports) |
+| `symbol` | no | KiCad library symbol, e.g. `Device:R` (KiCad imports) |
+| `footprint` | no | KiCad footprint, e.g. `Resistor_SMD:R_0603_1608Metric` (KiCad imports) |
+| `description` | no | Symbol description from the library |
 | `notes` | no | Free text |
+
+Top level may also have `"title"` (the schematic title).
+
+**From KiCad** (`kirch import kicad`): pins are named by **number** (`U1.9`), because pin
+names repeat (several `GND` pins on one chip). The readable names go in `pin_names`.
+`type` is guessed from the reference (`R1` → resistor, `U1` → ic, ESP32 / ATmega / RP2040… → mcu).
 
 ---
 
@@ -75,6 +86,9 @@ A **net** is a group of pins that are all connected together.
 - Net names are free text; `GND`, `5V`, `3V3` are conventional.
 - Each pin appears in **at most one** net (checked by `kirch add`).
 - Pins not in any net are unconnected.
+- Optional `"source"` says where it came from, e.g. `"kicad:servo-board.kicad_sch"`.
+  KiCad imports leave out nets with a single pin (unconnected pins) and keep KiCad's net
+  names (`/SERVO/SIG`, `Net-(R1-Pad1)`).
 
 **How the wiring diff reads it** (step 8): compare each pin's net in old vs new.
 `SERVO1.SIG: GPIO4 → GPIO9` is reported as
@@ -100,6 +114,45 @@ versions under a `"conflicts"` key:
 ```
 
 `kirch add` refuses the file until `"conflicts"` is fixed and deleted.
+
+---
+
+## `schematic.json`
+
+The schematic drawing, written by `kirch import kicad` (and kept up to date by
+`kirch add`). The website draws it exactly where it was drawn in KiCad.
+Netlist = what's connected; schematic = where it's drawn.
+
+```json
+{
+  "format": "kirch.schematic/1",
+  "source": "kicad:hw/servo-board.kicad_sch",
+  "units": "mm",
+  "main": "servo-board.kicad_sch",
+  "sheets": {
+    "servo-board.kicad_sch": {
+      "parts": [
+        { "ref": "R1", "unit": 1, "value": "10k", "at": [157.48, 85.09], "rotation": 180,
+          "box": [156.464, 81.28, 158.496, 88.9],
+          "pins": { "1": { "at": [157.48, 88.9], "end": [157.48, 87.63] } },
+          "shapes": [ { "kind": "poly", "points": [[156.464, 82.55], [158.496, 82.55]] } ] }
+      ],
+      "wires": [[185.42, 76.2, 198.12, 76.2]],
+      "junctions": [[76.2, 50.8]],
+      "power": [{ "name": "GND", "at": [86.36, 63.5], "rotation": 0 }],
+      "labels": [{ "text": "SERVO_SIG", "kind": "label", "at": [120, 40], "rotation": 0 }],
+      "no_connects": [], "sheets": []
+    }
+  }
+}
+```
+
+- Coordinates in **millimetres**, x to the right, **y down** (KiCad's page coordinates).
+- `parts` is a list: a chip with several units (two halves of a tube, four gates) appears once per unit.
+- `pins`: `at` = where wires connect, `end` = where the pin meets the body; keys are pin numbers (same as `netlist.json`).
+- `shapes` are the symbol's lines already placed on the page: `poly` (closed when first = last point), `circle` (`[centre, [radius, 0]]`), `arc` (start, middle, end).
+- `power` = GND / +5V symbols, `labels` = net labels, `sheets` = boxes for sub-sheets (each sub-sheet file is another entry in `sheets`).
+- Checked against KiCad's own demos: pin tips land on wire ends (100% on the ECC83 and PIC programmer demos; the rest are unused chip pins).
 
 ---
 
