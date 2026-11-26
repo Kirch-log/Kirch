@@ -103,9 +103,10 @@ How it connects: **their circuit + their ESP → our module (ESP32-S3, screens, 
 - [ ] USB link: their ESP plugs into our module's "USB" port → we get whatever their program prints (`Serial.print`) and forward it
 - [ ] Check our board can power theirs through that port (5 V out jumper); big loads need their own supply
 - [ ] Common USB chips on their boards (CH340, CP2102, native USB)
+- [ ] Tap wire: listen to their board's serial line with one wire, nothing changed on their side (first test: the FPGA accelerator's ESP bridge) — **🔨 Hridhayesh**
 
 **D. Our module's screens**
-- [ ] Screens on the module: status, Wi-Fi, live readings
+- [ ] Screens on the module: status, Wi-Fi, live readings (2 × SSD1306) — **🔨 Hridhayesh**
 - [ ] Battery level
 
 **E. Camera (optional)**
