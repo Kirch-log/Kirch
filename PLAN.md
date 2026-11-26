@@ -65,15 +65,16 @@ Three tracks. **A** comes first (small) — it decides what the API must return.
 
 Parked (not part of the product — users don't draw circuits): a KiCad import was built before this decision (`kirch import kicad`); it stays in the code but gets no more work. Wokwi import dropped.
 
-**B. Backend — the main server** — **Evin** ✅ (branch `server-backend/Evin`)
-- [x] Protocol spec for push/pull — [`docs/protocol.md`](docs/protocol.md) (custom TCP + TLS, `kirch://`, port 9418)
-- [x] TCP push/pull server: HELLO, REFS, WANT/HAVE, OBJ, DONE, UPDATE, OK/ERR
-- [x] `kirch push` / `pull` / `clone` speak `kirch://` (engine talks to folders and servers through one interface)
-- [x] Database (Postgres) that records repos and commits
-- [x] Indexer: `IndexRepo()` copies commits + branches into Postgres after each push (and for every repo at start)
-- [x] HTTP API the website reads from (repos, commits, diffs) — port 8080
-- [x] Run everything locally with one command (`docker compose up --build`)
-- [x] Tests against a real Postgres (CI too) + end-to-end script `scripts/e2e-server.sh`
+**B. Backend — the main server** — **🔨 Evin** (whole track, incl. push/pull)
+- [ ] Protocol spec for push/pull — `docs/protocol.md` (custom TCP + TLS, `kirch://`, port 9418)
+- [ ] TCP push/pull server: HELLO, REFS, WANT/HAVE, PACK, UPDATE, OK/ERR
+  - Reusable: branch `push-pull-http` already has a working HTTP version (object bundle format, "what to send" walk, `Remote` interface, race-safe push, tests) — take what helps
+- [ ] `kirch push` / `pull` / `clone` speak `kirch://` (engine sees a `Remote` interface)
+- [ ] Database (Postgres) that records repos and commits
+- [ ] Indexer: `IndexRepo()` copies commits + branches into Postgres after each push
+- [ ] HTTP API the website reads from (repos, commits, diffs) — port 8080
+- [ ] Run everything locally with one command (Docker)
+- [ ] Tests against a real Postgres
 
 **C. Frontend — the website**
 - [ ] Pages from track A
@@ -106,7 +107,7 @@ How it connects: **their circuit + their ESP → our module (ESP32-S3, screens, 
 - [ ] Tap wire: listen to their board's serial line with one wire, nothing changed on their side (first test: the FPGA accelerator's ESP bridge) — **🔨 Hridhayesh**
 
 **D. Our module's screens**
-- [ ] Screens on the module: status, Wi-Fi, live readings (2 × SSD1306) — **🔨 Hridhayesh**
+- [~] Screens on the module: status, Wi-Fi, live readings (2 × SSD1306; both start on the real board)
 - [ ] Battery level
 
 **E. Camera (optional)**
@@ -143,7 +144,7 @@ How it connects: **their circuit + their ESP → our module (ESP32-S3, screens, 
 - [ ] Put it online on AWS
 - [ ] Store big files (photos, binaries) in S3
 - [ ] Cloud mode for the probe (AWS IoT)
-- [ ] Pull requests and comments (GitHub login + tokens are v1, see README "Website plan")
+- [ ] Logins, pull requests and comments
 - [ ] Make push/pull safe for big repos and many users
 - [ ] Merge all branches into `main`
 
@@ -152,13 +153,12 @@ How it connects: **their circuit + their ESP → our module (ESP32-S3, screens, 
 ## Decisions (one line each)
 - Name is **kirch**; repo data lives in a `.kirch` folder.
 - Built from scratch in **Go**; it stores data exactly like git, so real git is our test checker.
-- Circuit files: `netlist.json`, `parts.json`, `layout.json`, `capture.json` — see the README, "Circuit files".
+- Circuit files: `netlist.json`, `parts.json`, `layout.json`, `capture.json`, `schematic.json` — see the README, "Circuit files".
 - Kirch's own files end in `.json` (`index.json`, `config.json`) so git can still read the folder.
 - Netlists merge **net by net**: two branches changing the same net differently = conflict (changed 2026-11-14 from "per pin", which could short pins).
 - Platform stack: Go server + Postgres + Next.js website; Docker locally, AWS when online.
 - Push/pull uses **our own TCP protocol** (`kirch://`, TLS, port 9418), built from scratch; the website uses **HTTP** (port 8080), since browsers can't open raw TCP (changed 2026-11-14 from HTTP + JSON push/pull).
 - Postgres is only an index; the repo folders on the server are the source of truth (Postgres can be rebuilt from them).
-- Server uses Go's standard HTTP router and its own small migration runner (no chi / sqlc / goose); only new dependency is the `pgx` Postgres driver (2026-11-14).
 - The AI never changes history by itself — it only suggests fixes on a new branch.
 - **The user writes nothing (2026-11-25).** Kirch works out the circuit from their ESP code (read only) + our measurements; the user only confirms. **No KiCad or other drawing tools** — the KiCad import already built is parked.
 - **We never touch their ESP's firmware (2026-11-25).** No agent, no uploads. Their ESP plugs into our module by USB and we take whatever it prints.

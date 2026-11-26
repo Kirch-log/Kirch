@@ -61,8 +61,7 @@ flowchart LR
   classDef plan stroke:#8A958F,stroke-width:2px,stroke-dasharray:5 4
   class cli built
   class probe wip
-  class push,indexer,api,repos,pg built
-  class agent,web,view3d,their,cam plan
+  class agent,push,indexer,api,repos,pg,web,view3d,their,cam plan
 ```
 
 Green = built · amber = in progress · dashed = planned.
@@ -109,14 +108,14 @@ Custom TCP only where we control both ends (CLI and server). HTTP wherever a bro
 |---|---|---|---|
 | 0 | Setup: plan, data formats, CI, release builds (v0.1.0) | ✅ Done | Hridhayesh |
 | 1 | `kirch` command line: init, add, commit, log, status, branch, diff, reset, revert, merge, clone/push/pull to a folder | ✅ Done | Hridhayesh |
-| 2 | Platform — **B. backend**: TCP push/pull, Postgres, indexer, HTTP API, Docker | ✅ Done (branch `server-backend/Evin`) | Evin |
+| 2 | Platform — **B. backend**: TCP push/pull, Postgres, indexer, HTTP API, Docker | 🔨 Starting | Evin |
 | 2 | Platform — **A. product spec** (draft below, "Website plan") + **C. website** | 🔨 Draft | Hridhayesh |
 | 2 | Platform — **D. getting circuits in**: draft circuit from the user's ESP code + data | ⬜ Planned | Hridhayesh |
 | 3 | Our module: firmware built, flashed, Bluetooth works; next: Wi-Fi test, their ESP's serial output over USB, screens (multiplexers later) | 🔨 In progress | Hridhayesh |
 | 4 | AI agent (`explain`, `debug`, `fix`, `bisect --auto`) | ⬜ Planned | Open |
 | 5 | 3D digital twin (auto-layout, optional camera) + 3D diff | ⬜ Planned | Open |
 
-The big picture: [`PROJECT.md`](PROJECT.md) · Full checklist: [`PLAN.md`](PLAN.md)
+Full checklist: [`PLAN.md`](PLAN.md)
 
 ---
 
@@ -169,12 +168,17 @@ ESP32-S3 + screens + clip wires (multiplexers later). It measures the user's cir
 | P2, P3, P4 | 3, 16, 21 | pulses (period, high time) — P4 = servo |
 | P5 | 9 | voltage |
 | P6 | 48 | on / off |
+| Tap | 7 | their board's serial line (one wire to their TX + GND; receive only) — bytes go out in each reading as `"tap"` |
+| Screens | 17/18, 4/5 | screen A: status, Wi-Fi setup, last tap bytes · screen B: live clip readings |
 
 ```bash
-cd firmware && pio run -t upload              # flash once over USB
-python firmware/tools/probe_listen.py         # see readings on the laptop
-python firmware/tools/fake_probe.py --drop 0.2 # test without the board
+cd firmware && pio run -t upload                          # flash (logs on the "USB" port)
+cd firmware && pio run -e esp32s3-uart -t upload          # flash (logs on the "UART" port)
+python firmware/tools/probe_listen.py                     # see readings on the laptop
+python firmware/tools/fake_probe.py --drop 0.2            # test without the board
 ```
+
+**Test circuit for now:** the FPGA accelerator's ESP bridge (held in reset, so it's just a cable to the FPGA). Tap wire: FPGA **IO1** (its TX to the laptop) → our module **GPIO7**, plus GND. The tap is set to 2 Mbaud for it (`TAP_BAUD` in `include/probe_config.h`).
 
 ---
 
@@ -192,32 +196,4 @@ go build -o kirch .
 ./kirch log
 ```
 
-Tests: `go test ./...` (needs git installed for the comparison tests; database tests use `KIRCH_TEST_DATABASE_URL` or a throwaway local Postgres, and skip if neither exists).
-
----
-
-## Run the server
-
-```
-docker compose up --build                      # Postgres + kirch-server
-docker compose cp server:/data/tls/cert.pem kirch-dev-cert.pem
-export KIRCH_CA_FILE=$PWD/kirch-dev-cert.pem   # trust the dev certificate
-
-kirch remote add origin kirch://localhost/evin/servo-board
-kirch push                                     # creates the repo on first push
-curl localhost:8080/api/repos/evin/servo-board/commits
-```
-
-| Endpoint | Returns |
-|---|---|
-| `GET /healthz` | `{"status":"ok"}` |
-| `GET /api/repos` | every repo with its latest commit |
-| `GET /api/repos/{owner}/{name}` | one repo + branch names |
-| `GET /api/repos/{owner}/{name}/branches` | branches with their tip commits |
-| `GET /api/repos/{owner}/{name}/commits?branch=&limit=&offset=` | history, `kirch log` order, paged |
-| `GET /api/repos/{owner}/{name}/commits/{id}` | one commit + changed files |
-| `GET /api/repos/{owner}/{name}/commits/{id}/diff` | patches + wiring changes for `netlist.json` |
-| `GET /api/repos/{owner}/{name}/commits/{id}/files` | every file in that commit |
-| `GET /api/repos/{owner}/{name}/commits/{id}/raw/{path}` | one file's contents |
-
-Without Docker: `go run ./server` (settings are environment variables, listed at the top of [`server/main.go`](server/main.go)). End-to-end check: `scripts/e2e-server.sh`.
+Tests: `go test ./...` (needs git installed for the comparison tests).
